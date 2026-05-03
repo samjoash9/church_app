@@ -65,8 +65,28 @@ class SongEditorScreen extends StatefulWidget {
 
 enum EditorMode { lyrics, chords, view }
 
+class LyricSection {
+  final String title;
+  final TextEditingController controller;
+  bool isExpanded;
+
+  LyricSection({required this.title, this.isExpanded = false}) 
+      : controller = TextEditingController();
+
+  void dispose() {
+    controller.dispose();
+  }
+}
+
 class _SongEditorScreenState extends State<SongEditorScreen> {
-  final _textController = TextEditingController();
+  final List<LyricSection> _sections = [
+    LyricSection(title: 'Verse', isExpanded: true),
+    LyricSection(title: 'Second Verse'),
+    LyricSection(title: 'Pre-Chorus'),
+    LyricSection(title: 'Chorus'),
+    LyricSection(title: 'Second Chorus'),
+    LyricSection(title: 'Bridge'),
+  ];
   EditorMode _currentMode = EditorMode.lyrics;
   List<SongLine> _lines = [];
   late String _currentKey;
@@ -83,31 +103,114 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
         lyrics: l.lyrics,
         initialChords: l.chords,
       )).toList();
-      _textController.text = _lines.map((l) => l.lyrics).join('\n');
+      _syncLinesToSections();
+    } else {
+      _sections[0].isExpanded = true;
     }
   }
 
   @override
   void dispose() {
-    _textController.dispose();
+    for (final section in _sections) {
+      section.dispose();
+    }
     for (final line in _lines) {
       line.dispose();
     }
     super.dispose();
   }
 
-  void _syncTextToLines() {
-    final text = _textController.text;
-    final newLyrics = text.split('\n');
-    final newLines = <SongLine>[];
+  void _syncLinesToSections() {
+    for (var section in _sections) {
+      section.controller.clear();
+      section.isExpanded = false;
+    }
 
-    for (int i = 0; i < newLyrics.length; i++) {
-      String lyric = newLyrics[i];
-      List<String>? chords;
-      if (i < _lines.length) {
-        chords = _lines[i].chordValues;
+    LyricSection? currentSection;
+    List<String> currentLines = [];
+
+    void saveCurrentSection() {
+      if (currentSection != null) {
+        final existingText = currentSection!.controller.text;
+        final newText = currentLines.join('\n').trim();
+        if (existingText.isNotEmpty && newText.isNotEmpty) {
+           currentSection!.controller.text = existingText + '\n\n' + newText;
+        } else if (newText.isNotEmpty) {
+           currentSection!.controller.text = newText;
+        }
+        if (currentSection!.controller.text.isNotEmpty) {
+          currentSection!.isExpanded = true;
+        }
+      } else if (currentLines.isNotEmpty) {
+        final newText = currentLines.join('\n').trim();
+        if (newText.isNotEmpty) {
+           _sections[0].controller.text = newText;
+           _sections[0].isExpanded = true;
+        }
       }
-      newLines.add(SongLine(lyrics: lyric, initialChords: chords));
+      currentLines.clear();
+    }
+
+    for (final line in _lines) {
+      final text = line.lyrics.trim();
+      final cleanText = text.replaceAll('[', '').replaceAll(']', '').trim().toLowerCase();
+      
+      final matchedSections = _sections.where((s) => s.title.toLowerCase() == cleanText);
+      final matchedSection = matchedSections.isNotEmpty ? matchedSections.first : null;
+      
+      if (matchedSection != null) {
+        saveCurrentSection();
+        currentSection = matchedSection;
+      } else {
+        if (text.isNotEmpty || currentLines.isNotEmpty) {
+          currentLines.add(line.lyrics); 
+        }
+      }
+    }
+    saveCurrentSection();
+    
+    if (_sections.every((s) => s.controller.text.isEmpty)) {
+      _sections[0].isExpanded = true;
+    }
+  }
+
+  void _syncTextToLines() {
+    final newLines = <SongLine>[];
+    int oldLineIndex = 0;
+
+    for (int i = 0; i < _sections.length; i++) {
+      final section = _sections[i];
+      final sectionText = section.controller.text.trim();
+      
+      if (sectionText.isNotEmpty) {
+        List<String>? headerChords;
+        final cleanOldText = oldLineIndex < _lines.length ? _lines[oldLineIndex].lyrics.replaceAll('[', '').replaceAll(']', '').trim().toLowerCase() : '';
+        if (oldLineIndex < _lines.length && cleanOldText == section.title.toLowerCase()) {
+          headerChords = _lines[oldLineIndex++].chordValues;
+        } else {
+          headerChords = null;
+        }
+        newLines.add(SongLine(lyrics: '[${section.title}]', initialChords: headerChords));
+        
+        final lyrics = sectionText.split('\n');
+        for (final lyric in lyrics) {
+          List<String>? lyricChords;
+          if (oldLineIndex < _lines.length) {
+            lyricChords = _lines[oldLineIndex++].chordValues;
+          }
+          newLines.add(SongLine(lyrics: lyric, initialChords: lyricChords));
+        }
+        
+        List<String>? blankChords;
+        if (oldLineIndex < _lines.length && _lines[oldLineIndex].lyrics.trim().isEmpty) {
+          blankChords = _lines[oldLineIndex++].chordValues;
+        }
+        newLines.add(SongLine(lyrics: '', initialChords: blankChords));
+      }
+    }
+
+    while (newLines.isNotEmpty && newLines.last.lyrics.trim().isEmpty) {
+      newLines.removeLast();
     }
 
     for (final line in _lines) {
@@ -124,7 +227,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
         _syncTextToLines();
       }
     } else {
-      _textController.text = _lines.map((l) => l.lyrics).join('\n');
+      _syncLinesToSections();
     }
 
     setState(() {
@@ -276,6 +379,82 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
 
   void _exit() {
     Navigator.of(context).pop();
+  }
+
+  Widget _buildSectionToggle(LyricSection section, AppColors colors) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: section.controller,
+            builder: (context, value, child) {
+              final isFilled = value.text.trim().isNotEmpty;
+              final headerBgColor = isFilled ? colors.accentSurface : colors.surfaceDim;
+              final headerTextColor = isFilled ? colors.onAccent : colors.textPrimary;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    section.isExpanded = !section.isExpanded;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: headerBgColor,
+                    borderRadius: section.isExpanded 
+                        ? const BorderRadius.vertical(top: Radius.circular(8))
+                        : BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        section.title,
+                        style: TextStyle(
+                          color: headerTextColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Icon(
+                        section.isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: headerTextColor,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          if (section.isExpanded)
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: section.controller,
+                maxLines: null,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  height: 1.5,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Paste or type lyrics here...',
+                  hintStyle: TextStyle(color: colors.textMuted),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -496,60 +675,67 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: _currentMode == EditorMode.lyrics
-                    ? TextField(
-                        controller: _textController,
-                        maxLines: null,
-                        expands: true,
-                        textAlignVertical: TextAlignVertical.top,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 16,
-                          height: 1.6,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Type or paste your lyrics here...\n\nExample:\nAmazing grace how sweet the sound...',
-                          hintStyle: TextStyle(color: colors.textMuted, height: 1.6),
-                          border: InputBorder.none,
-                        ),
+                    ? ListView.builder(
+                        itemCount: _sections.length,
+                        itemBuilder: (context, index) {
+                          final section = _sections[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: _buildSectionToggle(section, colors),
+                          );
+                        },
                       )
                     : ListView.builder(
                         itemCount: _lines.length,
                         itemBuilder: (context, index) {
                           final line = _lines[index];
+
+                          if (line.lyrics.trim().isEmpty && line.chordValues.every((c) => c.isEmpty)) {
+                            return const SizedBox(height: 16);
+                          }
+
+                          final isSectionHeader = line.lyrics.trim().startsWith('[') && line.lyrics.trim().endsWith(']');
+                          
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 24.0),
+                            padding: EdgeInsets.only(
+                              top: isSectionHeader && index > 0 ? 16.0 : 0.0,
+                              bottom: isSectionHeader ? 12.0 : 12.0,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Chord Slots Row
-                                SizedBox(
-                                  height: 26,
-                                  child: ClipRect(
-                                    child: Wrap(
-                                      spacing: 4,
-                                      runSpacing: 4,
-                                      children: line.slots
-                                          .map((slot) => ChordSlotWidget(
-                                                slot: slot,
-                                                colors: colors,
-                                                songKey: _currentKey,
-                                                isViewMode: _currentMode == EditorMode.view,
-                                              ))
-                                          .toList(),
+                                if (!isSectionHeader)
+                                  SizedBox(
+                                    height: 26,
+                                    child: ClipRect(
+                                      child: Wrap(
+                                        spacing: 4,
+                                        runSpacing: 4,
+                                        children: line.slots
+                                            .map((slot) => ChordSlotWidget(
+                                                  slot: slot,
+                                                  colors: colors,
+                                                  songKey: _currentKey,
+                                                  isViewMode: _currentMode == EditorMode.view,
+                                                ))
+                                            .toList(),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
+                                if (!isSectionHeader) const SizedBox(height: 6),
                                 // Lyric Line
-                                Text(
-                                  line.lyrics.isEmpty ? ' ' : line.lyrics, 
-                                  style: TextStyle(
-                                    color: colors.textPrimary, 
-                                    fontSize: 18, 
-                                    height: 1.5,
-                                    letterSpacing: 0.5,
+                                if (line.lyrics.trim().isNotEmpty)
+                                  Text(
+                                    line.lyrics, 
+                                    style: TextStyle(
+                                      color: isSectionHeader ? colors.accent : colors.textPrimary, 
+                                      fontSize: 18, 
+                                      fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
+                                      height: 1.5,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           );

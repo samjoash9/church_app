@@ -702,9 +702,11 @@ class _ChordsScreenState extends State<ChordsScreen> {
 
                     // ── Action buttons ──
                     if (allSongs.isNotEmpty)
-                      Row(
-                        children: [
-                          Expanded(
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: colors.accentSurface,
@@ -795,6 +797,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                           ),
                         ],
                       ),
+                    ),
 
                     // ── Empty state or Song List ──
                     if (allSongs.isEmpty)

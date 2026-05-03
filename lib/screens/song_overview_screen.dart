@@ -49,15 +49,25 @@ class SongOverviewScreen extends StatelessWidget {
                 itemCount: song.lines.length,
                 itemBuilder: (context, index) {
                   final line = song.lines[index];
+                  
+                  if (line.lyrics.trim().isEmpty && line.chords.every((c) => c.isEmpty)) {
+                    return const SizedBox(height: 16);
+                  }
+
+                  final isSectionHeader = line.lyrics.trim().startsWith('[') && line.lyrics.trim().endsWith(']');
+
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 24.0),
+                    padding: EdgeInsets.only(
+                      top: isSectionHeader && index > 0 ? 16.0 : 0.0,
+                      bottom: isSectionHeader ? 12.0 : 12.0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Chords
-                        if (line.chords.any((c) => c.isNotEmpty))
+                        if (!isSectionHeader && line.chords.any((c) => c.isNotEmpty))
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                            padding: const EdgeInsets.only(bottom: 6.0),
                             child: Wrap(
                               spacing: 4,
                               children: line.chords.map((chord) {
@@ -81,15 +91,17 @@ class SongOverviewScreen extends StatelessWidget {
                             ),
                           ),
                         // Lyrics
-                        Text(
-                          line.lyrics.isEmpty ? ' ' : line.lyrics,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 18,
-                            height: 1.5,
-                            letterSpacing: 0.5,
+                        if (line.lyrics.trim().isNotEmpty)
+                          Text(
+                            line.lyrics,
+                            style: TextStyle(
+                              color: isSectionHeader ? colors.accent : colors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
+                              height: 1.5,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   );

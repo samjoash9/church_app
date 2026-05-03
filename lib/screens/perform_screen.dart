@@ -20,6 +20,7 @@ class _PerformScreenState extends State<PerformScreen>
     with SingleTickerProviderStateMixin {
   late int _currentIndex;
   late PageController _pageController;
+  String _currentFilter = 'Full';
 
   @override
   void initState() {
@@ -41,7 +42,10 @@ class _PerformScreenState extends State<PerformScreen>
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      _currentFilter = 'Full';
+    });
   }
 
   @override
@@ -146,21 +150,56 @@ class _PerformScreenState extends State<PerformScreen>
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: widget.songs.length,
-                onPageChanged: (i) => setState(() => _currentIndex = i),
+                onPageChanged: (i) => setState(() {
+                  _currentIndex = i;
+                  _currentFilter = 'Full';
+                }),
                 itemBuilder: (context, pageIndex) {
                   final song = widget.songs[pageIndex];
+
+                  List<SongLineData> displayedLines = [];
+                  if (_currentFilter == 'Full') {
+                    displayedLines = song.lines;
+                  } else {
+                    bool inTargetSection = false;
+                    for (final line in song.lines) {
+                      final cleanLyrics = line.lyrics.trim();
+                      if (cleanLyrics.startsWith('[') && cleanLyrics.endsWith(']')) {
+                        final sectionName = cleanLyrics.substring(1, cleanLyrics.length - 1).trim();
+                        if (sectionName.toLowerCase() == _currentFilter.toLowerCase()) {
+                          inTargetSection = true;
+                          displayedLines.add(line);
+                        } else {
+                          inTargetSection = false;
+                        }
+                      } else if (inTargetSection) {
+                        displayedLines.add(line);
+                      }
+                    }
+                  }
+
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-                    itemCount: song.lines.length,
+                    itemCount: displayedLines.length,
                     itemBuilder: (context, lineIndex) {
-                      final line = song.lines[lineIndex];
+                      final line = displayedLines[lineIndex];
+
+                      if (line.lyrics.trim().isEmpty && line.chords.every((c) => c.isEmpty)) {
+                        return const SizedBox(height: 16);
+                      }
+
+                      final isSectionHeader = line.lyrics.trim().startsWith('[') && line.lyrics.trim().endsWith(']');
+
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 24.0),
+                        padding: EdgeInsets.only(
+                          top: isSectionHeader && lineIndex > 0 ? 16.0 : 0.0,
+                          bottom: isSectionHeader ? 12.0 : 12.0,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Chords row
-                            if (line.chords.any((c) => c.isNotEmpty))
+                            if (!isSectionHeader && line.chords.any((c) => c.isNotEmpty))
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 6.0),
                                 child: Wrap(
@@ -195,21 +234,88 @@ class _PerformScreenState extends State<PerformScreen>
                                 ),
                               ),
                             // Lyrics
-                            Text(
-                              line.lyrics.isEmpty ? ' ' : line.lyrics,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 20,
-                                height: 1.6,
-                                letterSpacing: 0.3,
+                            if (line.lyrics.trim().isNotEmpty)
+                              Text(
+                                line.lyrics,
+                                style: TextStyle(
+                                  color: isSectionHeader ? colors.accent : colors.textPrimary,
+                                  fontSize: 20,
+                                  fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
+                                  height: 1.6,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       );
                     },
                   );
                 },
+              ),
+            ),
+
+            // ── Section Filter Bar ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border(top: BorderSide(color: colors.border)),
+              ),
+              child: Builder(
+                builder: (context) {
+                  final currentSong = widget.songs[_currentIndex];
+                  final availableSections = currentSong.lines
+                      .where((l) => l.lyrics.trim().startsWith('[') && l.lyrics.trim().endsWith(']'))
+                      .map((l) => l.lyrics.trim().replaceAll('[', '').replaceAll(']', '').trim().toLowerCase())
+                      .toSet();
+
+                  final allFilters = ['Full', 'Verse', 'Second Verse', 'Pre-Chorus', 'Chorus', 'Bridge'];
+                  final activeFilters = allFilters.where((f) => f == 'Full' || availableSections.contains(f.toLowerCase())).toList();
+
+                  return Row(
+                    children: activeFilters.map((filter) {
+                      final isSelected = _currentFilter == filter;
+                      
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _currentFilter = filter;
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isSelected ? colors.accent : colors.surfaceDim,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isSelected ? colors.accent : colors.border,
+                              ),
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                                child: Text(
+                                  filter,
+                                  style: TextStyle(
+                                    color: isSelected ? colors.onAccent : colors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }
               ),
             ),
 
