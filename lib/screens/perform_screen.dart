@@ -239,7 +239,7 @@ class _PerformScreenState extends State<PerformScreen>
                                 line.lyrics,
                                 style: TextStyle(
                                   color: isSectionHeader ? colors.accent : colors.textPrimary,
-                                  fontSize: 20,
+                                  fontSize: 24,
                                   fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
                                   height: 1.6,
                                   letterSpacing: 0.3,

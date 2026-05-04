@@ -160,7 +160,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
     }
   }
 
-  Future<void> _showExportSongsModal(List<SongData> songs) async {
+  Future<void> _showExportSongsModal(List<SongData> songs, {bool isPdf = false}) async {
     final selectedSongIds = songs.map((song) => song.id).toSet();
     String sheetSearchQuery = '';
 
@@ -209,7 +209,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Export songs',
+                              isPdf ? 'Export PDFs' : 'Export Songs',
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 18,
@@ -450,21 +450,40 @@ class _ChordsScreenState extends State<ChordsScreen> {
                                   this.context,
                                 );
                                 Navigator.of(sheetCtx).pop();
-                                final savedPath = await _exportSongs(
-                                  selectedSongs,
-                                );
-
-                                if (!mounted || savedPath == null) return;
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${selectedSongs.length} song${selectedSongs.length == 1 ? '' : 's'} exported successfully!',
+                                
+                                if (isPdf) {
+                                  final pdf = await PdfExportService.generateChordCharts(selectedSongs);
+                                  final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+                                  final savedPath = await PdfExportService.exportPdf(
+                                    pdf: pdf,
+                                    songTitle: 'songs_export_$timestamp',
+                                  );
+                                  
+                                  if (!mounted || savedPath == null) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${selectedSongs.length} PDF${selectedSongs.length == 1 ? '' : 's'} exported successfully!',
+                                      ),
                                     ),
-                                  ),
-                                );
+                                  );
+                                } else {
+                                  final savedPath = await _exportSongs(
+                                    selectedSongs,
+                                  );
+  
+                                  if (!mounted || savedPath == null) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${selectedSongs.length} song${selectedSongs.length == 1 ? '' : 's'} exported successfully!',
+                                      ),
+                                    ),
+                                  );
+                                }
                               },
                         child: Text(
-                          'Export ${selectedSongs.length} song${selectedSongs.length == 1 ? '' : 's'}',
+                          'Export ${selectedSongs.length} ${isPdf ? 'PDF' : 'song'}${selectedSongs.length == 1 ? '' : 's'}',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -770,34 +789,68 @@ class _ChordsScreenState extends State<ChordsScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colors.surface,
-                                foregroundColor: colors.textPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: colors.border),
-                                ),
-                                elevation: 0,
-                              ),
-                              onPressed: () {
-                                _showExportSongsModal(allSongs);
-                              },
-                              icon: const Icon(Icons.file_download_rounded),
-                              label: const Text(
-                                'Export Songs',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
+                    if (allSongs.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colors.surface,
+                                  foregroundColor: colors.textPrimary,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: colors.border),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                onPressed: () {
+                                  _showExportSongsModal(allSongs, isPdf: false);
+                                },
+                                icon: const Icon(Icons.data_object_rounded),
+                                label: const Text(
+                                  'Export Songs',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colors.surface,
+                                  foregroundColor: colors.textPrimary,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: colors.border),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                onPressed: () {
+                                  _showExportSongsModal(allSongs, isPdf: true);
+                                },
+                                icon: const Icon(Icons.picture_as_pdf_rounded),
+                                label: const Text(
+                                  'Export PDFs',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     // ── Empty state or Song List ──
                     if (allSongs.isEmpty)

@@ -6,6 +6,7 @@ import '../screens/lineup_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/simple_page.dart';
 import '../screens/sound_library_screen.dart';
+import '../screens/ppt_screen.dart';
 import '../theme/app_colors.dart';
 
 import '../services/sound_library_service.dart';
@@ -104,7 +105,7 @@ class AppDrawer extends StatelessWidget {
               }
               onSelectItem('PPT');
               Navigator.of(context).pop();
-              _jumpTo(context, const SimplePage(title: 'PPT', icon: Icons.description_outlined, message: 'Presentations will appear here.'));
+              _jumpTo(context, const PptScreen());
             }),
             _buildItem(context, colors, 'drawer-settings', Icons.settings_outlined, 'Settings', () {
               if (selectedItem == 'Settings') {

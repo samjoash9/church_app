@@ -730,7 +730,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
                                     line.lyrics, 
                                     style: TextStyle(
                                       color: isSectionHeader ? colors.accent : colors.textPrimary, 
-                                      fontSize: 18, 
+                                      fontSize: 22, 
                                       fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
                                       height: 1.5,
                                       letterSpacing: 0.5,

@@ -13,7 +13,7 @@ class PdfExportService {
   // PDF slot width ≈ 26 × 0.722 ≈ 18.8 → round to 19.
   static const double _slotWidth = 19.0;
   static const double _chordRowHeight = 18.0;
-  static const double _lyricFontSize = 13.0;
+  static const double _lyricFontSize = 16.0;
   static const double _chordFontSize = 9.0;
 
   // ── Colour palette (mirrors app dark theme) ───────────────────────────────
@@ -25,6 +25,12 @@ class PdfExportService {
 
   // ─────────────────────────────────────────────────────────────────────────
   static Future<pw.Document> generateChordChart(SongData song) async {
+    final pdf = pw.Document();
+
+    return generateChordCharts([song]);
+  }
+
+  static Future<pw.Document> generateChordCharts(List<SongData> songs) async {
     final pdf = pw.Document();
 
     final titleStyle = pw.TextStyle(
@@ -42,39 +48,84 @@ class PdfExportService {
       color: _lyricTextCol,
     );
 
-    final content = <pw.Widget>[
-      pw.Center(
-        child: pw.Text(
-          '${song.title} - Key of ${song.songKey}',
-          style: titleStyle,
-        ),
-      ),
-      pw.SizedBox(height: 20),
-      ...song.lines.map(
-        (line) => pw.Padding(
-          padding: const pw.EdgeInsets.only(bottom: 12),
-          child: _buildLine(
-            line: line,
-            lyricStyle: lyricStyle,
-            chordStyle: chordStyle,
-          ),
-        ),
-      ),
-    ];
+    for (final song in songs) {
+      int splitIndex = (song.lines.length / 2).ceil();
+      for (int i = 0; i < 5; i++) {
+        final forward = splitIndex + i;
+        if (forward < song.lines.length) {
+          final text = song.lines[forward].lyrics.trim();
+          if (text.isEmpty || (text.startsWith('[') && text.endsWith(']'))) {
+            splitIndex = forward;
+            break;
+          }
+        }
+        final backward = splitIndex - i;
+        if (backward > 0 && backward < song.lines.length) {
+          final text = song.lines[backward].lyrics.trim();
+          if (text.isEmpty || (text.startsWith('[') && text.endsWith(']'))) {
+            splitIndex = backward;
+            break;
+          }
+        }
+      }
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
-          buildBackground: (_) => pw.FullPage(
-            ignoreMargins: true,
-            child: pw.Container(color: _pageBg),
-          ),
+      final leftLines = song.lines.take(splitIndex).toList();
+      final rightLines = song.lines.skip(splitIndex).toList();
+
+      final content = <pw.Widget>[
+        pw.SizedBox(height: 20),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: leftLines.map(
+                  (line) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 12),
+                    child: _buildLine(
+                      line: line,
+                      lyricStyle: lyricStyle,
+                      chordStyle: chordStyle,
+                    ),
+                  ),
+                ).toList(),
+              ),
+            ),
+            pw.SizedBox(width: 20),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: rightLines.map(
+                  (line) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 12),
+                    child: _buildLine(
+                      line: line,
+                      lyricStyle: lyricStyle,
+                      chordStyle: chordStyle,
+                    ),
+                  ),
+                ).toList(),
+              ),
+            ),
+          ],
         ),
-        build: (_) => content,
-      ),
-    );
+      ];
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageTheme: pw.PageTheme(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(40),
+            buildBackground: (_) => pw.FullPage(
+              ignoreMargins: true,
+              child: pw.Container(color: _pageBg),
+            ),
+          ),
+          build: (_) => content,
+        ),
+      );
+    }
 
     return pdf;
   }
