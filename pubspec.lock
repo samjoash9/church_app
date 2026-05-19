@@ -106,7 +106,7 @@ packages:
     source: hosted
     version: "1.0.9"
   dart_pptx:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: dart_pptx
       sha256: c24a99fa1dbeeeb638c43bc5bb5202fc1fc411982f6fa3ce8cc426a35afd2957
@@ -249,7 +249,7 @@ packages:
     source: hosted
     version: "4.1.2"
   image:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: image
       sha256: f31d52537dc417fdcde36088fdf11d191026fd5e4fae742491ebd40e5a8bea7d

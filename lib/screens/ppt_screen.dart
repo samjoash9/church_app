@@ -437,21 +437,80 @@ class _PptScreenState extends State<PptScreen> {
                                         orElse: () => SongData(id: id, title: 'Unknown', songKey: '?', lines: []),
                                       )).where((s) => s.title != 'Unknown').toList();
                                   
-                                  final messenger = ScaffoldMessenger.of(context);
-                                  messenger.showSnackBar(
-                                    const SnackBar(content: Text('Generating PPTX...')),
+                                  final progressNotifier = ValueNotifier<double>(0.0);
+                                  final statusNotifier = ValueNotifier<String>('Initializing...');
+                                  bool isCancelled = false;
+                                  
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (dialogCtx) {
+                                      return AlertDialog(
+                                        backgroundColor: colors.surface,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        title: Text('Exporting PPTX', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ValueListenableBuilder<double>(
+                                              valueListenable: progressNotifier,
+                                              builder: (context, val, _) => ClipRRect(
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value: val,
+                                                  backgroundColor: colors.surfaceDim,
+                                                  color: colors.accent,
+                                                  minHeight: 8,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            ValueListenableBuilder<String>(
+                                              valueListenable: statusNotifier,
+                                              builder: (context, val, _) => Text(
+                                                val,
+                                                style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () {
+                                              isCancelled = true;
+                                              Navigator.of(dialogCtx).pop();
+                                            },
+                                            child: Text('Cancel', style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   );
 
                                   final path = await PptExportService.exportPptx(
                                     ppt: ppt,
                                     songs: pptSongs,
+                                    onProgress: (status, progress) {
+                                      statusNotifier.value = status;
+                                      progressNotifier.value = progress;
+                                    },
+                                    isCancelled: () => isCancelled,
                                   );
 
-                                  if (path != null && mounted) {
-                                    messenger.hideCurrentSnackBar();
-                                    messenger.showSnackBar(
-                                      const SnackBar(content: Text('PPTX saved successfully!')),
-                                    );
+                                  if (mounted) {
+                                    if (!isCancelled) {
+                                      Navigator.of(context, rootNavigator: true).pop(); // dismiss dialog
+                                    }
+                                    if (path != null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('PPTX saved successfully!')),
+                                      );
+                                    } else if (isCancelled) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Export cancelled.')),
+                                      );
+                                    }
                                   }
                                 },
                               ),

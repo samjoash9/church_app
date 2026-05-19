@@ -13,8 +13,8 @@ class PdfExportService {
   // PDF slot width ≈ 26 × 0.722 ≈ 18.8 → round to 19.
   static const double _slotWidth = 19.0;
   static const double _chordRowHeight = 18.0;
-  static const double _lyricFontSize = 16.0;
-  static const double _chordFontSize = 9.0;
+  static const double _lyricFontSize = 12.0;
+  static const double _chordFontSize = 10.0;
 
   // ── Colour palette (mirrors app dark theme) ───────────────────────────────
   static const _pageBg        = PdfColor.fromInt(0xFF1E212B);
@@ -73,6 +73,19 @@ class PdfExportService {
       final rightLines = song.lines.skip(splitIndex).toList();
 
       final content = <pw.Widget>[
+        pw.Text(
+          song.title,
+          style: pw.TextStyle(
+            fontSize: 24,
+            fontWeight: pw.FontWeight.bold,
+            color: _lyricTextCol,
+          ),
+        ),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Key of ${song.songKey}',
+          style: titleStyle,
+        ),
         pw.SizedBox(height: 20),
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -130,51 +143,60 @@ class PdfExportService {
     return pdf;
   }
 
-  /// Builds a single lyrics line with chords positioned via Stack+Positioned.
-  /// Slot index N → x = N × _slotWidth, exactly mirroring the app view.
+  /// Builds a single lyrics line with chords using flow-based layout to match the app.
   static pw.Widget _buildLine({
     required SongLineData line,
     required pw.TextStyle lyricStyle,
     required pw.TextStyle chordStyle,
   }) {
-    final chords = line.chords; // list of 24 slot values
+    final chords = line.chords;
+    final isSectionHeader = line.lyrics.trim().startsWith('[') && line.lyrics.trim().endsWith(']');
 
-    // Collect only slots that have a chord, keep their index for positioning.
-    final positioned = <pw.Widget>[];
-    for (int i = 0; i < chords.length; i++) {
-      final chord = chords[i];
-      if (chord.isEmpty) continue;
-
-      positioned.add(
-        pw.Positioned(
-          left: i * _slotWidth,
-          top: 0,
-          child: pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+    // Build chord widgets using flow-based layout (similar to Wrap)
+    final chordWidgets = <pw.Widget>[];
+    for (final chord in chords) {
+      if (chord.isEmpty) {
+        chordWidgets.add(pw.SizedBox(width: 20));
+      } else {
+        chordWidgets.add(
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: pw.BoxDecoration(
               color: _chordBadgeBg,
-              borderRadius: pw.BorderRadius.circular(3),
+              borderRadius: pw.BorderRadius.circular(4),
             ),
             child: pw.Text(chord, style: chordStyle),
           ),
-        ),
-      );
+        );
+        chordWidgets.add(pw.SizedBox(width: 4));
+      }
     }
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        // ── Chord row (always reserve height so lyrics align) ──
-        if (positioned.isNotEmpty) ...[
-          pw.SizedBox(
-            height: _chordRowHeight,
-            child: pw.Stack(children: positioned),
+        // ── Chord row (only if not section header and has chords) ──
+        if (!isSectionHeader && chords.any((c) => c.isNotEmpty))
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 6.0),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: chordWidgets,
+            ),
           ),
-          pw.SizedBox(height: 3),
-        ],
         // ── Lyric text ──
-        if (line.lyrics.isNotEmpty)
-          pw.Text(line.lyrics, style: lyricStyle),
+        if (line.lyrics.trim().isNotEmpty)
+          pw.Text(
+            line.lyrics,
+            style: isSectionHeader
+                ? pw.TextStyle(
+                    fontSize: _lyricFontSize,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _chordTextCol,
+                    letterSpacing: 0.5,
+                  )
+                : lyricStyle,
+          ),
       ],
     );
   }

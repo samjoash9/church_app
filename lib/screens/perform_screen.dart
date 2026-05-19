@@ -224,7 +224,7 @@ class _PerformScreenState extends State<PerformScreen>
                                         chord,
                                         style: TextStyle(
                                           color: colors.accent,
-                                          fontSize: 14,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 0.5,
                                         ),
@@ -239,9 +239,9 @@ class _PerformScreenState extends State<PerformScreen>
                                 line.lyrics,
                                 style: TextStyle(
                                   color: isSectionHeader ? colors.accent : colors.textPrimary,
-                                  fontSize: 24,
+                                  fontSize: 15,
                                   fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
-                                  height: 1.6,
+                                  height: 1,
                                   letterSpacing: 0.3,
                                 ),
                               ),
