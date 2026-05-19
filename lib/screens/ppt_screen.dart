@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/song.dart';
 import '../models/ppt.dart';
+import '../models/ppt_theme.dart';
 import '../services/song_repository.dart';
 import '../services/ppt_repository.dart';
 import '../services/ppt_export_service.dart';
+import '../services/ppt_themes.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
@@ -17,6 +19,234 @@ class PptScreen extends StatefulWidget {
 
 class _PptScreenState extends State<PptScreen> {
   void _refresh() => setState(() {});
+
+  // ── Theme picker + export ───────────────────────────────────────────────
+  Future<void> _exportWithThemePicker(PptData ppt, List<SongData> pptSongs) async {
+    final colors = AppColors.of(context);
+    PptTheme? selectedTheme;
+
+    // Show theme picker dialog
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        PptTheme pickedTheme = PptThemes.all.first;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: colors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text(
+                'Choose a Theme',
+                style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Select the design for your PowerPoint slides.',
+                      style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    // Theme grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.5,
+                      ),
+                      itemCount: PptThemes.all.length,
+                      itemBuilder: (_, i) {
+                        final theme = PptThemes.all[i];
+                        final isSelected = pickedTheme.id == theme.id;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => pickedTheme = theme),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? colors.accent : colors.border,
+                                width: isSelected ? 2.5 : 1.5,
+                              ),
+                              boxShadow: isSelected
+                                  ? [BoxShadow(color: colors.accent.withOpacity(0.25), blurRadius: 8, spreadRadius: 1)]
+                                  : [],
+                            ),
+                            child: Stack(
+                              children: [
+                                // Preview image
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.asset(
+                                    theme.previewAsset,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: colors.surfaceDim,
+                                      child: Icon(Icons.image_outlined, color: colors.textMuted, size: 32),
+                                    ),
+                                  ),
+                                ),
+                                // Name label at bottom
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                                    child: Text(
+                                      theme.displayName,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Checkmark for selected
+                                if (isSelected)
+                                  Positioned(
+                                    top: 6,
+                                    right: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: colors.accent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.check, color: Colors.white, size: 14),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.accent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    selectedTheme = pickedTheme;
+                    Navigator.of(dialogCtx).pop();
+                  },
+                  child: const Text('Export', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // User cancelled the theme picker
+    if (selectedTheme == null || !mounted) return;
+
+    final theme = selectedTheme!;
+    final progressNotifier = ValueNotifier<double>(0.0);
+    final statusNotifier = ValueNotifier<String>('Initializing...');
+    bool isCancelled = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Exporting PPTX', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<double>(
+                valueListenable: progressNotifier,
+                builder: (context, val, _) => ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: val,
+                    backgroundColor: colors.surfaceDim,
+                    color: colors.accent,
+                    minHeight: 8,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<String>(
+                valueListenable: statusNotifier,
+                builder: (context, val, _) => Text(
+                  val,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                isCancelled = true;
+                Navigator.of(dialogCtx).pop();
+              },
+              child: Text('Cancel', style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+
+    final path = await PptExportService.exportPptx(
+      ppt: ppt,
+      songs: pptSongs,
+      theme: theme,
+      onProgress: (status, progress) {
+        statusNotifier.value = status;
+        progressNotifier.value = progress;
+      },
+      isCancelled: () => isCancelled,
+    );
+
+    if (mounted) {
+      if (!isCancelled) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      if (path != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PPTX saved successfully!')),
+        );
+      } else if (isCancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Export cancelled.')),
+        );
+      }
+    }
+  }
 
   void _showCreatePptSheet() {
     final allSongs = SongRepository().songs;
@@ -430,88 +660,14 @@ class _PptScreenState extends State<PptScreen> {
                             children: [
                               IconButton(
                                 icon: Icon(Icons.file_download_outlined, color: colors.accent),
-                                onPressed: () async {
+                                tooltip: 'Export PPTX',
+                                onPressed: () {
                                   final allSongs = SongRepository().songs;
                                   final pptSongs = ppt.songIds.map((id) => allSongs.firstWhere(
                                         (s) => s.id == id,
                                         orElse: () => SongData(id: id, title: 'Unknown', songKey: '?', lines: []),
                                       )).where((s) => s.title != 'Unknown').toList();
-                                  
-                                  final progressNotifier = ValueNotifier<double>(0.0);
-                                  final statusNotifier = ValueNotifier<String>('Initializing...');
-                                  bool isCancelled = false;
-                                  
-                                  showDialog(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder: (dialogCtx) {
-                                      return AlertDialog(
-                                        backgroundColor: colors.surface,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        title: Text('Exporting PPTX', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            ValueListenableBuilder<double>(
-                                              valueListenable: progressNotifier,
-                                              builder: (context, val, _) => ClipRRect(
-                                                borderRadius: BorderRadius.circular(4),
-                                                child: LinearProgressIndicator(
-                                                  value: val,
-                                                  backgroundColor: colors.surfaceDim,
-                                                  color: colors.accent,
-                                                  minHeight: 8,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            ValueListenableBuilder<String>(
-                                              valueListenable: statusNotifier,
-                                              builder: (context, val, _) => Text(
-                                                val,
-                                                style: TextStyle(color: colors.textSecondary, fontSize: 14),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () {
-                                              isCancelled = true;
-                                              Navigator.of(dialogCtx).pop();
-                                            },
-                                            child: Text('Cancel', style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold)),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-
-                                  final path = await PptExportService.exportPptx(
-                                    ppt: ppt,
-                                    songs: pptSongs,
-                                    onProgress: (status, progress) {
-                                      statusNotifier.value = status;
-                                      progressNotifier.value = progress;
-                                    },
-                                    isCancelled: () => isCancelled,
-                                  );
-
-                                  if (mounted) {
-                                    if (!isCancelled) {
-                                      Navigator.of(context, rootNavigator: true).pop(); // dismiss dialog
-                                    }
-                                    if (path != null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('PPTX saved successfully!')),
-                                      );
-                                    } else if (isCancelled) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Export cancelled.')),
-                                      );
-                                    }
-                                  }
+                                  _exportWithThemePicker(ppt, pptSongs);
                                 },
                               ),
                               IconButton(

@@ -21,12 +21,6 @@ version: 1.0.0+1
 environment:
   sdk: ^3.11.3
 
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
     sdk: flutter
@@ -75,7 +69,6 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
   assets:
     - assets/audio/A_Major_Pad.mp3
     - assets/audio/B_Major_Pad.mp3
@@ -84,13 +77,11 @@ flutter:
     - assets/audio/E_Major_Pad.mp3
     - assets/audio/F_Major_Pad.mp3
     - assets/audio/G_Major_Pad.mp3
-    - assets/ppt_backgrounds/
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
+    # PPT theme assets — each theme lives in its own subfolder.
+    # To add a new theme, create assets/ppt_backgrounds/<theme_id>/
+    # and add the directory entry below.
+    - assets/ppt_backgrounds/cloud/
+    - assets/ppt_backgrounds/blue_cloud/
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
