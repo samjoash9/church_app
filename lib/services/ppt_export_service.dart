@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter_pptx/flutter_pptx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,6 +10,7 @@ import '../models/ppt.dart';
 import '../models/ppt_theme.dart';
 import 'ppt_themes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'dart:typed_data';
 import 'package:dart_pptx/dart_pptx.dart';
@@ -34,9 +36,17 @@ class PptExportService {
     Future<void> addJpegWidgetSlide(Widget Function(Size) builder) async {
       const size = Size(1280, 720);
       final dynamic ctx = (pres as dynamic).context;
+      // Wrap with DefaultAssetBundle so that AssetImage can resolve asset
+      // files inside the isolated widget tree that captureFromWidget creates.
+      // Without this wrapper AssetImage silently fails → white/black slide.
       final bytes = await ctx.screenshotController.captureFromWidget(
-        builder(size),
-        delay: const Duration(milliseconds: 100),
+        DefaultAssetBundle(
+          bundle: rootBundle,
+          child: builder(size),
+        ),
+        // With pre-decoded dart:ui.Image objects, RawImage paints
+        // synchronously so the delay is only a safety margin.
+        delay: const Duration(milliseconds: 150),
         pixelRatio: 1.5,
         targetSize: size,
       );
@@ -47,6 +57,27 @@ class PptExportService {
           ..background.image =
               ImageReference.fromBytes(jpegBytes, name: 'slide'),
       );
+    }
+
+    // ── Pre-decode all background images ────────────────────────────────────
+    // Decode every background image into a dart:ui.Image BEFORE building any
+    // slide. Unlike MemoryImage (which still decodes asynchronously in the
+    // image pipeline), a dart:ui.Image is an already-decoded bitmap that
+    // RawImage paints synchronously — no race with captureFromWidget's delay.
+    final allAssetPaths = {
+      ...theme.backgroundAssets,
+      theme.resolvedTitleBackground,
+    };
+    final Map<String, ui.Image> decodedImages = {};
+    for (final path in allAssetPaths) {
+      final data = await rootBundle.load(path);
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      decodedImages[path] = frame.image;
     }
 
     // ── Background image picker ──────────────────────────────────────────────
@@ -60,12 +91,21 @@ class PptExportService {
       return theme.backgroundAssets[_random.nextInt(theme.backgroundAssets.length)];
     }
 
-    BoxDecoration backgroundDecoration() => BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(_pickBackground()),
-            fit: BoxFit.cover,
+    /// Builds a background widget from a pre-decoded dart:ui.Image.
+    /// Paints synchronously — no async decode needed during screenshot capture.
+    Widget backgroundWidget(String assetPath, Size size) {
+      return SizedBox(
+        width: size.width,
+        height: size.height,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: RawImage(
+            image: decodedImages[assetPath]!,
           ),
-        );
+        ),
+      );
+    }
 
     // ── Slide builders ──────────────────────────────────────────────────────
 
@@ -76,26 +116,30 @@ class PptExportService {
           textDirection: TextDirection.ltr,
           child: Material(
             color: Colors.transparent,
-            child: Container(
+            child: SizedBox(
               width: size.width,
               height: size.height,
-              decoration: backgroundDecoration(),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 64),
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.sectionTextColor,
-                      fontFamily: theme.fontFamily,
-                      fontSize: theme.sectionFontSize,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 8.0,
-                      height: 1.1,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: backgroundWidget(_pickBackground(), size)),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 64),
+                      child: Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: theme.sectionTextColor,
+                          fontFamily: theme.fontFamily,
+                          fontSize: theme.sectionFontSize,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8.0,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -110,26 +154,30 @@ class PptExportService {
           textDirection: TextDirection.ltr,
           child: Material(
             color: Colors.transparent,
-            child: Container(
+            child: SizedBox(
               width: size.width,
               height: size.height,
-              decoration: backgroundDecoration(),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 64),
-                  child: Text(
-                    song.title.toUpperCase(),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.titleTextColor,
-                      fontFamily: theme.fontFamily,
-                      fontSize: theme.titleFontSize,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 8.0,
-                      height: 1.1,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: backgroundWidget(_pickBackground(), size)),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 64),
+                      child: Text(
+                        song.title.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: theme.titleTextColor,
+                          fontFamily: theme.fontFamily,
+                          fontSize: theme.titleFontSize,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8.0,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -144,38 +192,46 @@ class PptExportService {
           textDirection: TextDirection.ltr,
           child: Material(
             color: Colors.transparent,
-            child: Container(
+            child: SizedBox(
               width: size.width,
               height: size.height,
-              padding: const EdgeInsets.all(48),
-              decoration: backgroundDecoration(),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
+              child: Stack(
                 children: [
-                  Text(
-                    sectionTitle,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.titleTextColor,
-                      fontFamily: theme.fontFamily,
-                      fontSize: theme.lyricsTitleFontSize,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ...lyrics.map(
-                    (l) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        l,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: theme.lyricsTextColor,
-                          fontFamily: theme.fontFamily,
-                          fontSize: theme.lyricsFontSize,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  Positioned.fill(child: backgroundWidget(_pickBackground(), size)),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(48),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            sectionTitle,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: theme.titleTextColor,
+                              fontFamily: theme.fontFamily,
+                              fontSize: theme.lyricsTitleFontSize,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          ...lyrics.map(
+                            (l) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Text(
+                                l,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: theme.lyricsTextColor,
+                                  fontFamily: theme.fontFamily,
+                                  fontSize: theme.lyricsFontSize,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -257,79 +313,78 @@ class PptExportService {
         textDirection: TextDirection.ltr,
         child: Material(
           color: Colors.transparent,
-          child: Container(
+          child: SizedBox(
             width: size.width,
             height: size.height,
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage(theme.resolvedTitleBackground),
-                fit: BoxFit.cover,
-              ),
-            ),
-            // When showTitleOverlay is false the image already contains all
-            // title text, so we render nothing on top of it.
-            child: theme.showTitleOverlay
-                ? Stack(
-                    children: [
-                      // Top-right: Date
-                      Positioned(
-                        top: 48,
-                        right: 48,
-                        child: Text(
-                          dateString,
-                          style: TextStyle(
-                            color: theme.titleTextColor.withOpacity(0.75),
-                            fontFamily: theme.fontFamily,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+            child: Stack(
+              children: [
+                // Title slide background — uses the pre-decoded dart:ui.Image
+                // so it paints synchronously (no white-flash).
+                Positioned.fill(
+                  child: backgroundWidget(theme.resolvedTitleBackground, size),
+                ),
+                // When showTitleOverlay is false the image already contains all
+                // title text, so we render nothing on top of it.
+                if (theme.showTitleOverlay) ...[
+                  // Top-right: Date
+                  Positioned(
+                    top: 48,
+                    right: 48,
+                    child: Text(
+                      dateString,
+                      style: TextStyle(
+                        color: theme.titleTextColor.withOpacity(0.75),
+                        fontFamily: theme.fontFamily,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
                       ),
-                      // Center: "BLESSED SUNDAY"
-                      Align(
-                        alignment: const Alignment(0, -0.45),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (theme.mainTitlePart1.isNotEmpty)
-                              Text(
-                                theme.mainTitlePart1,
-                                style: TextStyle(
-                                  color: theme.titleTextColor.withOpacity(0.85),
-                                  fontFamily: theme.fontFamily,
-                                  fontSize: 56,
-                                  letterSpacing: 24.0,
-                                ),
-                              ),
-                            Text(
-                              theme.mainTitlePart2,
-                              style: TextStyle(
-                                color: theme.titleTextColor,
-                                fontFamily: theme.fontFamily,
-                                fontSize: 200,
-                                fontWeight: FontWeight.bold,
-                                height: 0.9,
-                              ),
+                    ),
+                  ),
+                  // Center: "BLESSED SUNDAY"
+                  Align(
+                    alignment: const Alignment(0, -0.45),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (theme.mainTitlePart1.isNotEmpty)
+                          Text(
+                            theme.mainTitlePart1,
+                            style: TextStyle(
+                              color: theme.titleTextColor.withOpacity(0.85),
+                              fontFamily: theme.fontFamily,
+                              fontSize: 56,
+                              letterSpacing: 24.0,
                             ),
-                          ],
-                        ),
-                      ),
-                      // Bottom: Church icon
-                      Positioned(
-                        bottom: -80,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Icon(
-                            Icons.church,
-                            color: theme.titleTextColor.withOpacity(0.85),
-                            size: 400,
+                          ),
+                        Text(
+                          theme.mainTitlePart2,
+                          style: TextStyle(
+                            color: theme.titleTextColor,
+                            fontFamily: theme.fontFamily,
+                            fontSize: 200,
+                            fontWeight: FontWeight.bold,
+                            height: 0.9,
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                  // Bottom: Church icon
+                  Positioned(
+                    bottom: -80,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Icon(
+                        Icons.church,
+                        color: theme.titleTextColor.withOpacity(0.85),
+                        size: 400,
                       ),
-                    ],
-                  )
-                : const SizedBox.expand(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

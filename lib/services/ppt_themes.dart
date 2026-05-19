@@ -76,6 +76,34 @@ class PptThemes {
 
   // ── Add future themes here ────────────────────────────────────
 
+  static const PptTheme beige = PptTheme(
+    id: 'beige',
+    displayName: 'Beige',
+    previewAsset: 'assets/ppt_backgrounds/beige/1.png',
+    // 1.png is exclusively used for the main title slide.
+    // The image already contains the title text, so no overlay is rendered.
+    titleBackgroundAsset: 'assets/ppt_backgrounds/beige/1.png',
+    showTitleOverlay: false,
+    // 2–5.png are randomly assigned to all other slides.
+    backgroundAssets: [
+      'assets/ppt_backgrounds/beige/2.png',
+      'assets/ppt_backgrounds/beige/3.png',
+      'assets/ppt_backgrounds/beige/4.png',
+      'assets/ppt_backgrounds/beige/5.png',
+    ],
+    randomizeBackground: true,
+    titleTextColor: Colors.black,
+    lyricsTextColor: Colors.black,
+    sectionTextColor: Colors.black,
+    fontFamily: 'The Seasons',
+    titleFontSize: 90,
+    sectionFontSize: 80,
+    lyricsTitleFontSize: 36,
+    lyricsFontSize: 56,
+    mainTitlePart1: 'B L E S S E D',
+    mainTitlePart2: 'SUNDAY',
+  );
+
   // static const PptTheme sunset = PptTheme(
   //   id: 'sunset',
   //   displayName: 'Sunset',
@@ -94,6 +122,7 @@ class PptThemes {
   static const List<PptTheme> all = [
     cloud,
     blueCloud,
+    beige,
   ];
 
   /// Looks up a theme by its [id]. Falls back to [cloud] if not found.
