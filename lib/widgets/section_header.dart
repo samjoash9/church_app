@@ -8,11 +8,13 @@ class SectionHeader extends StatelessWidget {
     required this.title,
     this.onMenuTap,
     this.onBack,
+    this.action,
   }) : assert(onMenuTap != null || onBack != null);
 
   final String title;
   final VoidCallback? onMenuTap;
   final VoidCallback? onBack;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +43,18 @@ class SectionHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            title,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (action != null) action!,
         ],
       ),
     );

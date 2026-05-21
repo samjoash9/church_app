@@ -10,11 +10,11 @@ class PdfExportService {
   // ── Layout constants ─────────────────────────────────────────────────────
   // In the app: chord slot minWidth=22, spacing=4 → 26 px per slot, lyric font=18.
   // We scale everything to PDF lyric font=13: ratio = 13/18 ≈ 0.722
-  // PDF slot width ≈ 26 × 0.722 ≈ 18.8 → round to 19.
-  static const double _slotWidth = 19.0;
-  static const double _chordRowHeight = 18.0;
-  static const double _lyricFontSize = 12.0;
-  static const double _chordFontSize = 10.0;
+  // PDF slot width matches the 20.0 width in song_overview_screen.dart
+  static const double _slotWidth = 16.0;
+  static const double _chordRowHeight = 14.0;
+  static const double _lyricFontSize = 14.0;
+  static const double _chordFontSize = 12.0;
 
   // ── Colour palette (mirrors app dark theme) ───────────────────────────────
   static const _pageBg        = PdfColor.fromInt(0xFF1E212B);
@@ -46,6 +46,8 @@ class PdfExportService {
     final lyricStyle = pw.TextStyle(
       fontSize: _lyricFontSize,
       color: _lyricTextCol,
+      height: 1.5,
+      letterSpacing: 0.5,
     );
 
     for (final song in songs) {
@@ -87,38 +89,44 @@ class PdfExportService {
           style: titleStyle,
         ),
         pw.SizedBox(height: 20),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+        pw.Partitions(
           children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: leftLines.map(
-                  (line) => pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 12),
-                    child: _buildLine(
-                      line: line,
-                      lyricStyle: lyricStyle,
-                      chordStyle: chordStyle,
+            pw.Partition(
+              flex: 1,
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.only(right: 10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: leftLines.map(
+                    (line) => pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 12),
+                      child: _buildLine(
+                        line: line,
+                        lyricStyle: lyricStyle,
+                        chordStyle: chordStyle,
+                      ),
                     ),
-                  ),
-                ).toList(),
+                  ).toList(),
+                ),
               ),
             ),
-            pw.SizedBox(width: 20),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: rightLines.map(
-                  (line) => pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 12),
-                    child: _buildLine(
-                      line: line,
-                      lyricStyle: lyricStyle,
-                      chordStyle: chordStyle,
+            pw.Partition(
+              flex: 1,
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.only(left: 10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: rightLines.map(
+                    (line) => pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 12),
+                      child: _buildLine(
+                        line: line,
+                        lyricStyle: lyricStyle,
+                        chordStyle: chordStyle,
+                      ),
                     ),
-                  ),
-                ).toList(),
+                  ).toList(),
+                ),
               ),
             ),
           ],
@@ -152,25 +160,20 @@ class PdfExportService {
     final chords = line.chords;
     final isSectionHeader = line.lyrics.trim().startsWith('[') && line.lyrics.trim().endsWith(']');
 
-    // Build chord widgets using flow-based layout (similar to Wrap)
-    final chordWidgets = <pw.Widget>[];
-    for (final chord in chords) {
+    // Build chord widgets matching the song_overview_screen.dart layout
+    final chordWidgets = chords.map((chord) {
       if (chord.isEmpty) {
-        chordWidgets.add(pw.SizedBox(width: 20));
-      } else {
-        chordWidgets.add(
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: pw.BoxDecoration(
-              color: _chordBadgeBg,
-              borderRadius: pw.BorderRadius.circular(4),
-            ),
-            child: pw.Text(chord, style: chordStyle),
-          ),
-        );
-        chordWidgets.add(pw.SizedBox(width: 4));
+        return pw.SizedBox(width: _slotWidth);
       }
-    }
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: pw.BoxDecoration(
+          color: _chordBadgeBg,
+          borderRadius: pw.BorderRadius.circular(4),
+        ),
+        child: pw.Text(chord, style: chordStyle),
+      );
+    }).toList();
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -179,8 +182,9 @@ class PdfExportService {
         if (!isSectionHeader && chords.any((c) => c.isNotEmpty))
           pw.Padding(
             padding: const pw.EdgeInsets.only(bottom: 6.0),
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+            child: pw.Wrap(
+              spacing: 4,
+              runSpacing: 4,
               children: chordWidgets,
             ),
           ),

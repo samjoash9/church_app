@@ -669,6 +669,61 @@ class _ChordsScreenState extends State<ChordsScreen> {
               builder: (context) => SectionHeader(
                 title: 'Chords',
                 onMenuTap: () => Scaffold.of(context).openDrawer(),
+                action: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: colors.textPrimary),
+                  color: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colors.border),
+                  ),
+                  onSelected: (value) {
+                    if (value == 'import') {
+                      _importSongs();
+                    } else if (value == 'export_songs') {
+                      if (allSongs.isNotEmpty) {
+                        _showExportSongsModal(allSongs, isPdf: false);
+                      }
+                    } else if (value == 'export_pdfs') {
+                      if (allSongs.isNotEmpty) {
+                        _showExportSongsModal(allSongs, isPdf: true);
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'import',
+                      child: Row(
+                        children: [
+                          Icon(Icons.file_upload_rounded, color: colors.textPrimary, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Import Songs', style: TextStyle(color: colors.textPrimary)),
+                        ],
+                      ),
+                    ),
+                    if (allSongs.isNotEmpty) ...[
+                      PopupMenuItem(
+                        value: 'export_songs',
+                        child: Row(
+                          children: [
+                            Icon(Icons.data_object_rounded, color: colors.textPrimary, size: 20),
+                            const SizedBox(width: 12),
+                            Text('Export Songs', style: TextStyle(color: colors.textPrimary)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'export_pdfs',
+                        child: Row(
+                          children: [
+                            Icon(Icons.picture_as_pdf_rounded, color: colors.textPrimary, size: 20),
+                            const SizedBox(width: 12),
+                            Text('Export PDFs', style: TextStyle(color: colors.textPrimary)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -719,138 +774,6 @@ class _ChordsScreenState extends State<ChordsScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ── Action buttons ──
-                    if (allSongs.isNotEmpty)
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colors.accentSurface,
-                                foregroundColor: colors.onAccent,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              onPressed: () async {
-                                final result = await Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const CreateSongScreen(),
-                                  ),
-                                );
-                                if (!context.mounted) return;
-                                if (result != null && result is Map) {
-                                  await Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => SongEditorScreen(
-                                        title: result['title'],
-                                        songKey: result['key'],
-                                      ),
-                                    ),
-                                  );
-                                }
-                                _refresh();
-                              },
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text(
-                                'Create New Song',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colors.surface,
-                                foregroundColor: colors.textPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: colors.border),
-                                ),
-                                elevation: 0,
-                              ),
-                              onPressed: () {
-                                _importSongs();
-                              },
-                              icon: const Icon(Icons.file_upload_rounded),
-                              label: const Text(
-                                'Import Songs',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (allSongs.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: colors.surface,
-                                  foregroundColor: colors.textPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(color: colors.border),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                onPressed: () {
-                                  _showExportSongsModal(allSongs, isPdf: false);
-                                },
-                                icon: const Icon(Icons.data_object_rounded),
-                                label: const Text(
-                                  'Export Songs',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: colors.surface,
-                                  foregroundColor: colors.textPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(color: colors.border),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                onPressed: () {
-                                  _showExportSongsModal(allSongs, isPdf: true);
-                                },
-                                icon: const Icon(Icons.picture_as_pdf_rounded),
-                                label: const Text(
-                                  'Export PDFs',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
 
                     // ── Empty state or Song List ──
                     if (allSongs.isEmpty)
@@ -1097,6 +1020,32 @@ class _ChordsScreenState extends State<ChordsScreen> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        shape: const CircleBorder(),
+        backgroundColor: colors.accent,
+        foregroundColor: colors.onAccent,
+        elevation: 4,
+        onPressed: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const CreateSongScreen(),
+            ),
+          );
+          if (!context.mounted) return;
+          if (result != null && result is Map) {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SongEditorScreen(
+                  title: result['title'],
+                  songKey: result['key'],
+                ),
+              ),
+            );
+          }
+          _refresh();
+        },
+        child: const Icon(Icons.add_rounded, size: 32),
       ),
     );
   }

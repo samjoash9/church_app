@@ -104,6 +104,55 @@ class PptThemes {
     mainTitlePart2: 'SUNDAY',
   );
 
+  static const PptTheme blueField = PptTheme(
+    id: 'blue_field',
+    displayName: 'Blue Field',
+    previewAsset: 'assets/ppt_backgrounds/blue_field/1.png',
+    titleBackgroundAsset: 'assets/ppt_backgrounds/blue_field/1.png',
+    showTitleOverlay: false,
+    backgroundAssets: ['assets/ppt_backgrounds/blue_field/2.png'],
+    titleTextColor: Colors.white,
+    lyricsTextColor: Colors.white,
+    sectionTextColor: Colors.white,
+    fontFamily: 'The Seasons',
+    titleFontSize: 90,
+    sectionFontSize: 80,
+    lyricsTitleFontSize: 36,
+    lyricsFontSize: 56,
+    mainTitlePart1: 'B L E S S E D',
+    mainTitlePart2: 'SUNDAY',
+  );
+
+  static const PptTheme cyanLight = PptTheme(
+    id: 'cyan_light',
+    displayName: 'Cyan Light',
+    previewAsset: 'assets/ppt_backgrounds/cyan_light/1.png',
+    // 1.png is exclusively used for the main title slide.
+    // The image already contains the title text, so no overlay is rendered.
+    titleBackgroundAsset: 'assets/ppt_backgrounds/cyan_light/1.png',
+    showTitleOverlay: false,
+    // 2–7.png are randomly assigned to all other slides.
+    backgroundAssets: [
+      'assets/ppt_backgrounds/cyan_light/2.png',
+      'assets/ppt_backgrounds/cyan_light/3.png',
+      'assets/ppt_backgrounds/cyan_light/4.png',
+      'assets/ppt_backgrounds/cyan_light/5.png',
+      'assets/ppt_backgrounds/cyan_light/6.png',
+      'assets/ppt_backgrounds/cyan_light/7.png',
+    ],
+    randomizeBackground: true,
+    titleTextColor: Colors.white,
+    lyricsTextColor: Colors.white,
+    sectionTextColor: Colors.white,
+    fontFamily: 'The Seasons',
+    titleFontSize: 90,
+    sectionFontSize: 80,
+    lyricsTitleFontSize: 36,
+    lyricsFontSize: 56,
+    mainTitlePart1: 'B L E S S E D',
+    mainTitlePart2: 'SUNDAY',
+  );
+
   // static const PptTheme sunset = PptTheme(
   //   id: 'sunset',
   //   displayName: 'Sunset',
@@ -123,6 +172,8 @@ class PptThemes {
     cloud,
     blueCloud,
     beige,
+    blueField,
+    cyanLight,
   ];
 
   /// Looks up a theme by its [id]. Falls back to [cloud] if not found.
