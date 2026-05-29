@@ -29,8 +29,6 @@ class PdfExportService {
 
   // ─────────────────────────────────────────────────────────────────────────
   static Future<pw.Document> generateChordChart(SongData song) async {
-    final pdf = pw.Document();
-
     return generateChordCharts([song]);
   }
 

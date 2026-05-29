@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../models/sound_entry.dart';
 import '../screens/chords_screen.dart';
 import '../screens/lineup_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/simple_page.dart';
 import '../screens/ppt_screen.dart';
 import '../theme/app_colors.dart';
 

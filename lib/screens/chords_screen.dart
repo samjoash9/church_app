@@ -1051,60 +1051,6 @@ class _ChordsScreenState extends State<ChordsScreen> {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.colors,
-    required this.isPrimary,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final AppColors colors;
-  final bool isPrimary;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isPrimary ? colors.accentSurface : colors.surface;
-    final fg = isPrimary ? colors.onAccent : colors.textPrimary;
-    final border = isPrimary ? colors.accentSurface : colors.border;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: border, width: 1.2),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: fg, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ChordsModalButton extends StatelessWidget {
   const _ChordsModalButton({
     required this.icon,

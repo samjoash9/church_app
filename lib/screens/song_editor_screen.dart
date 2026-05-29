@@ -131,15 +131,15 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
 
     void saveCurrentSection() {
       if (currentSection != null) {
-        final existingText = currentSection!.controller.text;
+        final existingText = currentSection.controller.text;
         final newText = currentLines.join('\n').trim();
         if (existingText.isNotEmpty && newText.isNotEmpty) {
-           currentSection!.controller.text = existingText + '\n\n' + newText;
+           currentSection.controller.text = '$existingText\n\n$newText';
         } else if (newText.isNotEmpty) {
-           currentSection!.controller.text = newText;
+           currentSection.controller.text = newText;
         }
-        if (currentSection!.controller.text.isNotEmpty) {
-          currentSection!.isExpanded = true;
+        if (currentSection.controller.text.isNotEmpty) {
+          currentSection.isExpanded = true;
         }
       } else if (currentLines.isNotEmpty) {
         final newText = currentLines.join('\n').trim();

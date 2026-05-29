@@ -12,8 +12,6 @@ import 'ppt_themes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
-import 'dart:typed_data';
-import 'package:dart_pptx/dart_pptx.dart';
 
 class PptExportService {
   /// Generates a .pptx file for the given PPT and its songs.
