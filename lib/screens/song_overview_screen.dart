@@ -45,7 +45,7 @@ class SongOverviewScreen extends StatelessWidget {
             // ── Content Area ──
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 itemCount: song.lines.length,
                 itemBuilder: (context, index) {
                   final line = song.lines[index];
@@ -64,30 +64,49 @@ class SongOverviewScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Chords
+                        // Chords — mirror the editor's View-mode slot row exactly
+                        // so positioning is identical to what was authored.
                         if (!isSectionHeader && line.chords.any((c) => c.isNotEmpty))
                           Padding(
                             padding: const EdgeInsets.only(bottom: 6.0),
-                            child: Wrap(
-                              spacing: 4,
-                              children: line.chords.map((chord) {
-                                if (chord.isEmpty) return const SizedBox(width: 20);
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: colors.accentSurface.withAlpha(51),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    chord,
-                                    style: TextStyle(
-                                      color: colors.accent,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                            child: SizedBox(
+                              height: 26,
+                              child: ClipRect(
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: line.chords.map((chord) {
+                                    final hasChord = chord.isNotEmpty;
+                                    return Container(
+                                      height: 26,
+                                      constraints: const BoxConstraints(minWidth: 22),
+                                      padding: hasChord
+                                          ? const EdgeInsets.symmetric(horizontal: 6)
+                                          : null,
+                                      decoration: BoxDecoration(
+                                        color: hasChord
+                                            ? colors.accentSurface.withAlpha(51)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          if (hasChord)
+                                            Text(
+                                              chord,
+                                              style: TextStyle(
+                                                color: colors.accent,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
                             ),
                           ),
                         // Lyrics
@@ -98,8 +117,8 @@ class SongOverviewScreen extends StatelessWidget {
                               color: isSectionHeader ? colors.accent : colors.textPrimary,
                               fontSize: 15,
                               fontWeight: isSectionHeader ? FontWeight.bold : FontWeight.normal,
-                              height: 1.5,
-                              letterSpacing: 0.5,
+                              height: 1,
+                              letterSpacing: 0.3,
                             ),
                           ),
                       ],

@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/key_card.dart';
 import '../widgets/mode_tab.dart';
+import '../screens/sound_library_screen.dart';
 import '../services/sound_library_service.dart';
 
 class WorshipPadsScreen extends StatefulWidget {
@@ -156,7 +157,43 @@ class _WorshipPadsScreenState extends State<WorshipPadsScreen> {
                   const SizedBox(width: 8),
                   Text('Worship Pads', style: TextStyle(color: colors.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
                   const Spacer(),
-                  const SizedBox(width: 48),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: colors.textPrimary),
+                    color: colors.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colors.border),
+                    ),
+                    onSelected: (value) {
+                      if (value == 'sound_library') {
+                        final service = SoundLibraryService();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SoundLibraryScreen(
+                              soundsFor: service.soundsFor,
+                              activeSoundPathFor: service.activeSoundPathFor,
+                              onAddSound: service.addSoundToFolder,
+                              onDeleteSound: service.removeSoundFromFolder,
+                              onSetActiveSound: service.setActiveSoundForFolder,
+                              onClearActiveSound: service.clearActiveSoundForFolder,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'sound_library',
+                        child: Row(
+                          children: [
+                            Icon(Icons.library_music_outlined, color: colors.textPrimary, size: 20),
+                            const SizedBox(width: 12),
+                            Text('Sound Library', style: TextStyle(color: colors.textPrimary)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

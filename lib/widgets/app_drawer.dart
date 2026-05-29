@@ -5,11 +5,9 @@ import '../screens/chords_screen.dart';
 import '../screens/lineup_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/simple_page.dart';
-import '../screens/sound_library_screen.dart';
 import '../screens/ppt_screen.dart';
 import '../theme/app_colors.dart';
 
-import '../services/sound_library_service.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
@@ -59,26 +57,6 @@ class AppDrawer extends StatelessWidget {
               }
               onSelectItem('Pads');
               Navigator.of(context).popUntil((route) => route.isFirst);
-            }),
-            _buildItem(context, colors, 'drawer-sound-library', Icons.library_music_outlined, 'Sound Library', () {
-              if (selectedItem == 'Sound Library') {
-                Navigator.of(context).pop();
-                return;
-              }
-              onSelectItem('Sound Library');
-              Navigator.of(context).pop();
-              
-              final service = SoundLibraryService();
-              final screen = SoundLibraryScreen(
-                soundsFor: service.soundsFor, 
-                activeSoundPathFor: service.activeSoundPathFor,
-                onAddSound: service.addSoundToFolder, 
-                onDeleteSound: service.removeSoundFromFolder,
-                onSetActiveSound: service.setActiveSoundForFolder, 
-                onClearActiveSound: service.clearActiveSoundForFolder,
-              );
-
-              _jumpTo(context, screen);
             }),
             _buildItem(context, colors, 'drawer-chords', Icons.music_note_outlined, 'Chords', () {
               if (selectedItem == 'Chords') {

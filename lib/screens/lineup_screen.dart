@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/song.dart';
+import '../models/ppt.dart';
+import '../models/ppt_theme.dart';
 import '../services/song_repository.dart';
 import '../services/lineup_repository.dart';
+import '../services/pdf_export_service.dart';
+import '../services/ppt_export_service.dart';
+import '../services/ppt_themes.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
@@ -16,6 +21,234 @@ class LineupScreen extends StatefulWidget {
 
 class _LineupScreenState extends State<LineupScreen> {
   void _refresh() => setState(() {});
+
+  // ── Theme picker + export ───────────────────────────────────────────────
+  Future<void> _exportWithThemePicker(PptData ppt, List<SongData> pptSongs) async {
+    final colors = AppColors.of(context);
+    PptTheme? selectedTheme;
+
+    // Show theme picker dialog
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        PptTheme pickedTheme = PptThemes.all.first;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: colors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text(
+                'Choose a Theme',
+                style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Select the design for your PowerPoint slides.',
+                      style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    // Theme grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.5,
+                      ),
+                      itemCount: PptThemes.all.length,
+                      itemBuilder: (_, i) {
+                        final theme = PptThemes.all[i];
+                        final isSelected = pickedTheme.id == theme.id;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => pickedTheme = theme),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? colors.accent : colors.border,
+                                width: isSelected ? 2.5 : 1.5,
+                              ),
+                              boxShadow: isSelected
+                                  ? [BoxShadow(color: colors.accent.withOpacity(0.25), blurRadius: 8, spreadRadius: 1)]
+                                  : [],
+                            ),
+                            child: Stack(
+                              children: [
+                                // Preview image
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.asset(
+                                    theme.previewAsset,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: colors.surfaceDim,
+                                      child: Icon(Icons.image_outlined, color: colors.textMuted, size: 32),
+                                    ),
+                                  ),
+                                ),
+                                // Name label at bottom
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                                    child: Text(
+                                      theme.displayName,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Checkmark for selected
+                                if (isSelected)
+                                  Positioned(
+                                    top: 6,
+                                    right: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: colors.accent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.check, color: Colors.white, size: 14),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.accent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    selectedTheme = pickedTheme;
+                    Navigator.of(dialogCtx).pop();
+                  },
+                  child: const Text('Export', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // User cancelled the theme picker
+    if (selectedTheme == null || !mounted) return;
+
+    final theme = selectedTheme!;
+    final progressNotifier = ValueNotifier<double>(0.0);
+    final statusNotifier = ValueNotifier<String>('Initializing...');
+    bool isCancelled = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Exporting PPTX', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<double>(
+                valueListenable: progressNotifier,
+                builder: (context, val, _) => ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: val,
+                    backgroundColor: colors.surfaceDim,
+                    color: colors.accent,
+                    minHeight: 8,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<String>(
+                valueListenable: statusNotifier,
+                builder: (context, val, _) => Text(
+                  val,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                isCancelled = true;
+                Navigator.of(dialogCtx).pop();
+              },
+              child: Text('Cancel', style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+
+    final path = await PptExportService.exportPptx(
+      ppt: ppt,
+      songs: pptSongs,
+      theme: theme,
+      onProgress: (status, progress) {
+        statusNotifier.value = status;
+        progressNotifier.value = progress;
+      },
+      isCancelled: () => isCancelled,
+    );
+
+    if (mounted) {
+      if (!isCancelled) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      if (path != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PPTX saved successfully!')),
+        );
+      } else if (isCancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Export cancelled.')),
+        );
+      }
+    }
+  }
 
   void _showAddSongsSheet() {
     final allSongs = SongRepository().songs;
@@ -278,6 +511,14 @@ class _LineupScreenState extends State<LineupScreen> {
         selectedItem: 'Line up',
         onSelectItem: (_) {},
       ),
+      floatingActionButton: FloatingActionButton(
+        shape: const CircleBorder(),
+        backgroundColor: colors.accent,
+        foregroundColor: colors.onAccent,
+        elevation: 4,
+        onPressed: _showAddSongsSheet,
+        child: const Icon(Icons.add_rounded),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -285,29 +526,107 @@ class _LineupScreenState extends State<LineupScreen> {
               builder: (context) => SectionHeader(
                 title: 'Line up',
                 onMenuTap: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-            if (lineupSongs.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.accentSurface,
-                      foregroundColor: colors.onAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: _showAddSongsSheet,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add songs', style: TextStyle(fontWeight: FontWeight.bold)),
+                action: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: colors.textPrimary),
+                  color: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colors.border),
                   ),
+                  onSelected: (value) async {
+                    if (value == 'perform') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PerformScreen(songs: lineupSongs),
+                        ),
+                      );
+                    } else if (value == 'export_pdf') {
+                      final pdf = await PdfExportService.generateChordCharts(lineupSongs);
+                      await PdfExportService.exportPdf(
+                        pdf: pdf,
+                        songTitle: 'Lineup',
+                      );
+                    } else if (value == 'export_ppt') {
+                      final ppt = PptData(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        title: 'Lineup',
+                        songIds: lineupIds.toList(),
+                      );
+                      await _exportWithThemePicker(ppt, lineupSongs);
+                    } else if (value == 'clear') {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: colors.surface,
+                          title: Text('Clear Line up', style: TextStyle(color: colors.textPrimary)),
+                          content: Text('Are you sure you want to remove all songs from the lineup?', style: TextStyle(color: colors.textSecondary)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                LineupRepository().clearLineup();
+                                Navigator.pop(context);
+                                _refresh();
+                              },
+                              child: Text('Clear All', style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'perform',
+                      enabled: lineupSongs.isNotEmpty,
+                      child: Row(
+                        children: [
+                          Icon(Icons.play_arrow_rounded, color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Perform', style: TextStyle(color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'export_pdf',
+                      enabled: lineupSongs.isNotEmpty,
+                      child: Row(
+                        children: [
+                          Icon(Icons.picture_as_pdf_rounded, color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Export as PDF', style: TextStyle(color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'export_ppt',
+                      enabled: lineupSongs.isNotEmpty,
+                      child: Row(
+                        children: [
+                          Icon(Icons.slideshow_rounded, color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Export as PPT', style: TextStyle(color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'clear',
+                      enabled: lineupSongs.isNotEmpty,
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_sweep_rounded, color: lineupSongs.isNotEmpty ? colors.danger : colors.textMuted, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Clear Line up', style: TextStyle(color: lineupSongs.isNotEmpty ? colors.danger : colors.textMuted)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
             if (lineupSongs.isEmpty)
               Expanded(
                 child: Center(
@@ -326,20 +645,8 @@ class _LineupScreenState extends State<LineupScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Tap "Add songs" to build your lineup.',
+                        'Tap + to add songs to your lineup.',
                         style: TextStyle(color: colors.textSecondary),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colors.accent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: _showAddSongsSheet,
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Add songs', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -406,85 +713,19 @@ class _LineupScreenState extends State<LineupScreen> {
                                   _refresh();
                                 },
                               ),
-                              const Icon(Icons.drag_handle, color: Colors.grey),
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                  child: Icon(Icons.drag_handle, color: Colors.grey, size: 28),
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ),
                     );
                   },
-                ),
-              ),
-            if (lineupSongs.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.accent,
-                      foregroundColor: colors.onAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PerformScreen(songs: lineupSongs),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Perform', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  ),
-                ),
-              ),
-            if (lineupSongs.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.danger.withAlpha(30),
-                      foregroundColor: colors.danger,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: colors.danger.withAlpha(100)),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          backgroundColor: colors.surface,
-                          title: Text('Clear Line up', style: TextStyle(color: colors.textPrimary)),
-                          content: Text('Are you sure you want to remove all songs from the lineup?', style: TextStyle(color: colors.textSecondary)),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                LineupRepository().clearLineup();
-                                Navigator.pop(context);
-                                _refresh();
-                              },
-                              child: Text('Clear All', style: TextStyle(color: colors.danger, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.delete_sweep_rounded),
-                    label: const Text('Clear Line up', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
                 ),
               ),
           ],

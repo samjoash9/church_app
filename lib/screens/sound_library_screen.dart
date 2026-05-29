@@ -4,7 +4,6 @@ import '../models/sound_entry.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dialog_action_button.dart';
 import '../widgets/section_header.dart';
-import '../widgets/app_drawer.dart';
 
 class SoundLibraryScreen extends StatelessWidget {
   const SoundLibraryScreen({
@@ -30,18 +29,12 @@ class SoundLibraryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: AppDrawer(
-        selectedItem: 'Sound Library',
-        onSelectItem: (_) {},
-      ),
       body: SafeArea(
         child: Column(
           children: [
-            Builder(
-              builder: (context) => SectionHeader(
-                title: 'Sound Library',
-                onMenuTap: () => Scaffold.of(context).openDrawer(),
-              ),
+            SectionHeader(
+              title: 'Sound Library',
+              onBack: () => Navigator.of(context).pop(),
             ),
             Expanded(
               child: Padding(
