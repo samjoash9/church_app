@@ -89,6 +89,7 @@ flutter:
     - assets/ppt_backgrounds/beige/
     - assets/ppt_backgrounds/blue_field/
     - assets/ppt_backgrounds/cyan_light/
+    - assets/ppt_backgrounds/orange/
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
@@ -99,6 +100,12 @@ flutter:
     - family: The Seasons
       fonts:
         - asset: assets/fonts/TheSeasons.ttf
+    # Space Grotesk (SIL OFL 1.1, see assets/fonts/SpaceGrotesk-OFL.txt) — a
+    # free geometric-grotesque used as the Neue Montreal stand-in for the
+    # Orange PPT theme. Variable font; Flutter maps FontWeight onto the axis.
+    - family: Space Grotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-VariableFont_wght.ttf
   #   - family: Schyler
   #     fonts:
   #       - asset: fonts/Schyler-Regular.ttf

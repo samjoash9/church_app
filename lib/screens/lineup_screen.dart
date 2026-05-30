@@ -7,10 +7,12 @@ import '../services/lineup_repository.dart';
 import '../services/pdf_export_service.dart';
 import '../services/ppt_export_service.dart';
 import '../services/ppt_themes.dart';
+import '../services/transposer.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
 import 'perform_screen.dart';
+import 'song_overview_screen.dart';
 
 class LineupScreen extends StatefulWidget {
   const LineupScreen({super.key});
@@ -494,6 +496,298 @@ class _LineupScreenState extends State<LineupScreen> {
     );
   }
 
+  /// Returns a copy of [song] with every chord shifted into [targetKey] and
+  /// its stored key updated. Lyrics and section headers are untouched.
+  SongData _transposeSong(SongData song, String targetKey) {
+    final semitones = Transposer.semitonesBetween(song.songKey, targetKey);
+    final flats = Transposer.prefersFlats(targetKey);
+    return SongData(
+      id: song.id,
+      title: song.title,
+      songKey: targetKey,
+      lines: song.lines
+          .map(
+            (line) => SongLineData(
+              lyrics: line.lyrics,
+              chords: line.chords
+                  .map((c) => Transposer.transposeChord(c, semitones,
+                      preferFlats: flats))
+                  .toList(),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  /// Dialog: pick a target key, transpose all chords, and save permanently.
+  /// The song is stored in [SongRepository], so the change is reflected
+  /// everywhere the song appears (Chords, Line up, exports).
+  Future<void> _showChangeKeyDialog(SongData song) async {
+    const allKeys = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    final colors = AppColors.of(context);
+    String selectedKey = song.songKey;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final semitones =
+                Transposer.semitonesBetween(song.songKey, selectedKey);
+            return AlertDialog(
+              backgroundColor: colors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: colors.border),
+              ),
+              title: Text(
+                'Change Key',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Current key: ${song.songKey}',
+                    style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'New key',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceDim,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value:
+                            allKeys.contains(selectedKey) ? selectedKey : null,
+                        isExpanded: true,
+                        dropdownColor: colors.surface,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: colors.textMuted),
+                        items: allKeys
+                            .map(
+                              (k) => DropdownMenuItem(
+                                value: k,
+                                child: Text('Key of $k'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedKey = val);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    semitones == 0
+                        ? 'No change'
+                        : '${semitones > 0 ? '+' : ''}$semitones semitone'
+                            '${semitones.abs() == 1 ? '' : 's'}',
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child:
+                      Text('Cancel', style: TextStyle(color: colors.textMuted)),
+                ),
+                TextButton(
+                  onPressed: selectedKey == song.songKey
+                      ? null
+                      : () => Navigator.of(ctx).pop(true),
+                  child: Text(
+                    'Save',
+                    style: TextStyle(
+                      color: selectedKey == song.songKey
+                          ? colors.textMuted
+                          : colors.accent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final transposed = _transposeSong(song, selectedKey);
+    await SongRepository().saveSong(transposed);
+    if (!mounted) return;
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('"${song.title}" changed to key of $selectedKey')),
+    );
+  }
+
+  /// Confirms then removes [song] from the lineup (the song itself is kept).
+  Future<void> _confirmRemove(SongData song) async {
+    final colors = AppColors.of(context);
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        title: Text('Remove from Line up',
+            style: TextStyle(color: colors.textPrimary)),
+        content: Text(
+          'Remove "${song.title}" from the lineup? The song itself is kept.',
+          style: TextStyle(color: colors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Remove',
+                style: TextStyle(
+                    color: colors.danger, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRemove != true || !mounted) return;
+    await LineupRepository().removeFromLineup(song.id);
+    if (!mounted) return;
+    _refresh();
+  }
+
+  /// Action sheet shown when a lineup song is tapped: change key or remove.
+  void _showSongActionModal(SongData song) {
+    final colors = AppColors.of(context);
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: colors.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: colors.accentSurface.withAlpha(40),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.music_note_rounded,
+                      color: colors.accent, size: 28),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  song.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Key of ${song.songKey}',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                ),
+                const SizedBox(height: 28),
+
+                // ── Overview (lyrics + chords) ──
+                _LineupModalButton(
+                  icon: Icons.visibility_rounded,
+                  label: 'Overview',
+                  colors: colors,
+                  isPrimary: true,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SongOverviewScreen(song: song),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Change key ──
+                _LineupModalButton(
+                  icon: Icons.swap_vert_rounded,
+                  label: 'Change Key',
+                  colors: colors,
+                  isPrimary: false,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _showChangeKeyDialog(song);
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Remove from Line up ──
+                _LineupModalButton(
+                  icon: Icons.remove_circle_outline_rounded,
+                  label: 'Remove from Line up',
+                  colors: colors,
+                  isPrimary: false,
+                  isDanger: true,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _confirmRemove(song);
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Back ──
+                _LineupModalButton(
+                  icon: Icons.arrow_back_rounded,
+                  label: 'Back',
+                  colors: colors,
+                  isPrimary: false,
+                  onTap: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -555,6 +849,27 @@ class _LineupScreenState extends State<LineupScreen> {
                         songIds: lineupIds.toList(),
                       );
                       await _exportWithThemePicker(ppt, lineupSongs);
+                    } else if (value == 'export_setlist') {
+                      // Setlist = chord-chart PDF + themed PPTX in one action.
+                      // PDF first (silent save), then the PPT theme picker so
+                      // the user only interacts with one dialog.
+                      final pdf = await PdfExportService.generateChordCharts(lineupSongs);
+                      final pdfPath = await PdfExportService.exportPdf(
+                        pdf: pdf,
+                        songTitle: 'Setlist',
+                      );
+                      if (!mounted) return;
+                      if (pdfPath != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Setlist PDF saved. Now choose a PPT theme…')),
+                        );
+                      }
+                      final ppt = PptData(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        title: 'Setlist',
+                        songIds: lineupIds.toList(),
+                      );
+                      await _exportWithThemePicker(ppt, lineupSongs);
                     } else if (value == 'clear') {
                       showDialog(
                         context: context,
@@ -611,6 +926,17 @@ class _LineupScreenState extends State<LineupScreen> {
                           Icon(Icons.slideshow_rounded, color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted, size: 20),
                           const SizedBox(width: 12),
                           Text('Export as PPT', style: TextStyle(color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'export_setlist',
+                      enabled: lineupSongs.isNotEmpty,
+                      child: Row(
+                        children: [
+                          Icon(Icons.library_books_rounded, color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Export Setlist (PDF + PPT)', style: TextStyle(color: lineupSongs.isNotEmpty ? colors.textPrimary : colors.textMuted)),
                         ],
                       ),
                     ),
@@ -681,6 +1007,7 @@ class _LineupScreenState extends State<LineupScreen> {
                           border: Border.all(color: colors.border),
                         ),
                         child: ListTile(
+                          onTap: () => _showSongActionModal(song),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           leading: Container(
                             width: 40,
@@ -708,13 +1035,7 @@ class _LineupScreenState extends State<LineupScreen> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(
-                                icon: Icon(Icons.remove_circle_outline, color: colors.danger),
-                                onPressed: () {
-                                  LineupRepository().removeFromLineup(song.id);
-                                  _refresh();
-                                },
-                              ),
+                              Icon(Icons.chevron_right_rounded, color: colors.textMuted),
                               ReorderableDragStartListener(
                                 index: index,
                                 child: Padding(
@@ -731,6 +1052,67 @@ class _LineupScreenState extends State<LineupScreen> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LineupModalButton extends StatelessWidget {
+  const _LineupModalButton({
+    required this.icon,
+    required this.label,
+    required this.colors,
+    required this.isPrimary,
+    required this.onTap,
+    this.isDanger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final AppColors colors;
+  final bool isPrimary;
+  final bool isDanger;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isPrimary ? colors.accentSurface : colors.surfaceDim;
+    final fg = isDanger
+        ? colors.danger
+        : (isPrimary ? colors.onAccent : colors.textPrimary);
+    final borderColor = isPrimary ? colors.accentSurface : colors.border;
+
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor, width: 1.2),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: fg, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

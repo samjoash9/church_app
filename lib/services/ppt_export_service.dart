@@ -208,40 +208,54 @@ class PptExportService {
                   Positioned.fill(
                     child: backgroundWidget(_pickBackground(), size),
                   ),
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(48),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            sectionTitle,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: theme.titleTextColor,
-                              fontFamily: theme.fontFamily,
-                              fontSize: theme.lyricsTitleFontSize,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  Padding(
+                    padding: const EdgeInsets.all(48),
+                    // Scale the whole lyric block down to fit when a verse has
+                    // many/long lines, so big fonts never overflow & clip the
+                    // bottom. Fits at full size whenever it can.
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: ConstrainedBox(
+                          // Keep the natural text width so lines wrap exactly as
+                          // they would unscaled; FittedBox only shrinks height.
+                          constraints: BoxConstraints(
+                            maxWidth: size.width - 96,
                           ),
-                          const SizedBox(height: 24),
-                          ...lyrics.map(
-                            (l) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Text(
-                                l,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                sectionTitle,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: theme.lyricsTextColor,
+                                  color: theme.titleTextColor,
                                   fontFamily: theme.fontFamily,
-                                  fontSize: theme.lyricsFontSize,
+                                  fontSize: theme.lyricsTitleFontSize,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 24),
+                              ...lyrics.map(
+                                (l) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: Text(
+                                    l,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: theme.lyricsTextColor,
+                                      fontFamily: theme.fontFamily,
+                                      fontSize: theme.lyricsFontSize,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

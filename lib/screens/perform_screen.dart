@@ -231,39 +231,50 @@ class _PerformScreenState extends State<PerformScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Chords row
+                            // Chords — mirror the Overview screen's slot row
+                            // exactly so positioning is identical to what was
+                            // authored. (Overview is the source of truth.)
                             if (!isSectionHeader && line.chords.any((c) => c.isNotEmpty))
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 6.0),
-                                child: Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: line.chords.map((chord) {
-                                    if (chord.isEmpty) {
-                                      return const SizedBox(width: 12);
-                                    }
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: colors.accent.withAlpha(30),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: colors.accent.withAlpha(80),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        chord,
-                                        style: TextStyle(
-                                          color: colors.accent,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
+                                child: SizedBox(
+                                  height: 26,
+                                  child: ClipRect(
+                                    child: Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: line.chords.map((chord) {
+                                        final hasChord = chord.isNotEmpty;
+                                        return Container(
+                                          height: 26,
+                                          constraints: const BoxConstraints(minWidth: 22),
+                                          padding: hasChord
+                                              ? const EdgeInsets.symmetric(horizontal: 6)
+                                              : null,
+                                          decoration: BoxDecoration(
+                                            color: hasChord
+                                                ? colors.accentSurface.withAlpha(51)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              if (hasChord)
+                                                Text(
+                                                  chord,
+                                                  style: TextStyle(
+                                                    color: colors.accent,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
                                 ),
                               ),
                             // Lyrics

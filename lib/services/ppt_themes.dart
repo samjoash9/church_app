@@ -36,10 +36,10 @@ class PptThemes {
     lyricsTextColor: Colors.black,
     sectionTextColor: Colors.black,
     fontFamily: 'The Seasons',
-    titleFontSize: 90,
-    sectionFontSize: 80,
-    lyricsTitleFontSize: 36,
-    lyricsFontSize: 56,
+    titleFontSize: 104,
+    sectionFontSize: 92,
+    lyricsTitleFontSize: 42,
+    lyricsFontSize: 64,
     mainTitlePart1: 'B L E S S E D',
     mainTitlePart2: 'SUNDAY',
   );
@@ -66,10 +66,10 @@ class PptThemes {
     lyricsTextColor: Colors.black,
     sectionTextColor: Colors.black,
     fontFamily: 'The Seasons',
-    titleFontSize: 90,
-    sectionFontSize: 80,
-    lyricsTitleFontSize: 36,
-    lyricsFontSize: 56,
+    titleFontSize: 104,
+    sectionFontSize: 92,
+    lyricsTitleFontSize: 42,
+    lyricsFontSize: 64,
     mainTitlePart1: 'B L E S S E D',
     mainTitlePart2: 'SUNDAY',
   );
@@ -96,10 +96,10 @@ class PptThemes {
     lyricsTextColor: Colors.black,
     sectionTextColor: Colors.black,
     fontFamily: 'The Seasons',
-    titleFontSize: 90,
-    sectionFontSize: 80,
-    lyricsTitleFontSize: 36,
-    lyricsFontSize: 56,
+    titleFontSize: 104,
+    sectionFontSize: 92,
+    lyricsTitleFontSize: 42,
+    lyricsFontSize: 64,
     mainTitlePart1: 'B L E S S E D',
     mainTitlePart2: 'SUNDAY',
   );
@@ -115,10 +115,10 @@ class PptThemes {
     lyricsTextColor: Colors.white,
     sectionTextColor: Colors.white,
     fontFamily: 'The Seasons',
-    titleFontSize: 90,
-    sectionFontSize: 80,
-    lyricsTitleFontSize: 36,
-    lyricsFontSize: 56,
+    titleFontSize: 104,
+    sectionFontSize: 92,
+    lyricsTitleFontSize: 42,
+    lyricsFontSize: 64,
     mainTitlePart1: 'B L E S S E D',
     mainTitlePart2: 'SUNDAY',
   );
@@ -145,10 +145,39 @@ class PptThemes {
     lyricsTextColor: Colors.white,
     sectionTextColor: Colors.white,
     fontFamily: 'The Seasons',
-    titleFontSize: 90,
-    sectionFontSize: 80,
-    lyricsTitleFontSize: 36,
-    lyricsFontSize: 56,
+    titleFontSize: 104,
+    sectionFontSize: 92,
+    lyricsTitleFontSize: 42,
+    lyricsFontSize: 64,
+    mainTitlePart1: 'B L E S S E D',
+    mainTitlePart2: 'SUNDAY',
+  );
+
+  static const PptTheme orange = PptTheme(
+    id: 'orange',
+    displayName: 'Orange',
+    previewAsset: 'assets/ppt_backgrounds/orange/1.png',
+    // 1.png is exclusively used for the main title slide.
+    // The image already contains the title text, so no overlay is rendered.
+    titleBackgroundAsset: 'assets/ppt_backgrounds/orange/1.png',
+    showTitleOverlay: false,
+    // 2–4.png are randomly assigned to all other slides.
+    backgroundAssets: [
+      'assets/ppt_backgrounds/orange/2.png',
+      'assets/ppt_backgrounds/orange/3.png',
+      'assets/ppt_backgrounds/orange/4.png',
+    ],
+    randomizeBackground: true,
+    titleTextColor: Colors.white,
+    lyricsTextColor: Colors.white,
+    sectionTextColor: Colors.white,
+    // Space Grotesk stands in for Neue Montreal (commercial). Registered in
+    // pubspec.yaml under fonts.
+    fontFamily: 'Space Grotesk',
+    titleFontSize: 104,
+    sectionFontSize: 92,
+    lyricsTitleFontSize: 42,
+    lyricsFontSize: 64,
     mainTitlePart1: 'B L E S S E D',
     mainTitlePart2: 'SUNDAY',
   );
@@ -174,6 +203,7 @@ class PptThemes {
     beige,
     blueField,
     cyanLight,
+    orange,
   ];
 
   /// Looks up a theme by its [id]. Falls back to [cloud] if not found.

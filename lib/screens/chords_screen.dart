@@ -17,6 +17,7 @@ import 'lineup_screen.dart';
 import '../services/song_repository.dart';
 import '../services/lineup_repository.dart';
 import '../services/pdf_export_service.dart';
+import '../services/transposer.dart';
 
 class ChordsScreen extends StatefulWidget {
   const ChordsScreen({super.key});
@@ -519,6 +520,157 @@ class _ChordsScreenState extends State<ChordsScreen> {
     );
   }
 
+  /// Returns a copy of [song] with every chord shifted into [targetKey] and
+  /// its stored key updated. Lyrics and section headers are untouched.
+  SongData _transposeSong(SongData song, String targetKey) {
+    final semitones = Transposer.semitonesBetween(song.songKey, targetKey);
+    final flats = Transposer.prefersFlats(targetKey);
+    return SongData(
+      id: song.id,
+      title: song.title,
+      songKey: targetKey,
+      lines: song.lines
+          .map(
+            (line) => SongLineData(
+              lyrics: line.lyrics,
+              chords: line.chords
+                  .map((c) => Transposer.transposeChord(c, semitones,
+                      preferFlats: flats))
+                  .toList(),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  /// Dialog: pick a target key, transpose all chords, and save permanently.
+  Future<void> _showChangeKeyDialog(SongData song) async {
+    const allKeys = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    final colors = AppColors.of(context);
+    String selectedKey = song.songKey;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final semitones =
+                Transposer.semitonesBetween(song.songKey, selectedKey);
+            return AlertDialog(
+              backgroundColor: colors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: colors.border),
+              ),
+              title: Text(
+                'Change Key',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Current key: ${song.songKey}',
+                    style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'New key',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceDim,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: allKeys.contains(selectedKey)
+                            ? selectedKey
+                            : null,
+                        isExpanded: true,
+                        dropdownColor: colors.surface,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        icon: Icon(Icons.arrow_drop_down, color: colors.textMuted),
+                        items: allKeys
+                            .map(
+                              (k) => DropdownMenuItem(
+                                value: k,
+                                child: Text('Key of $k'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedKey = val);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    semitones == 0
+                        ? 'No change'
+                        : '${semitones > 0 ? '+' : ''}$semitones semitone'
+                            '${semitones.abs() == 1 ? '' : 's'}',
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('Cancel',
+                      style: TextStyle(color: colors.textMuted)),
+                ),
+                TextButton(
+                  onPressed: selectedKey == song.songKey
+                      ? null
+                      : () => Navigator.of(ctx).pop(true),
+                  child: Text(
+                    'Save',
+                    style: TextStyle(
+                      color: selectedKey == song.songKey
+                          ? colors.textMuted
+                          : colors.accent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final transposed = _transposeSong(song, selectedKey);
+    await SongRepository().saveSong(transposed);
+    if (!mounted) return;
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('"${song.title}" changed to key of $selectedKey')),
+    );
+  }
+
   void _showSongActionModal(SongData song) {
     final colors = AppColors.of(context);
     showDialog(
@@ -603,6 +755,19 @@ class _ChordsScreenState extends State<ChordsScreen> {
                       ),
                     );
                     _refresh();
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Change key ──
+                _ChordsModalButton(
+                  icon: Icons.swap_vert_rounded,
+                  label: 'Change Key',
+                  colors: colors,
+                  isPrimary: false,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _showChangeKeyDialog(song);
                   },
                 ),
                 const SizedBox(height: 12),
