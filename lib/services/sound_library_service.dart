@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -46,6 +47,46 @@ class SoundLibraryService extends ChangeNotifier {
 
     // Persisted active selection wins over the bundled default.
     _activeSoundPaths.addAll(persisted.active);
+
+    // Drop user-imported entries whose backing file no longer exists (Android
+    // can evict file_picker's cached copies, or the source was deleted). Async
+    // and fire-and-forget so init() stays synchronous; UI refreshes via
+    // notifyListeners when the cleanup actually removes something.
+    unawaited(_pruneMissingImports());
+  }
+
+  /// Removes user-imported sounds whose file is gone, and repairs any active
+  /// selection that pointed at a removed entry. Bundled assets are never
+  /// touched (their path is an asset URI, not a filesystem path).
+  Future<void> _pruneMissingImports() async {
+    var changed = false;
+    for (final folderId in _librarySounds.keys.toList()) {
+      final entries = _librarySounds[folderId]!;
+      final survivors = <SoundEntry>[];
+      for (final entry in entries) {
+        if (entry.isAsset || await File(entry.path).exists()) {
+          survivors.add(entry);
+        } else {
+          changed = true;
+        }
+      }
+      if (survivors.length == entries.length) continue;
+
+      if (survivors.isEmpty) {
+        _librarySounds.remove(folderId);
+        _activeSoundPaths.remove(folderId);
+      } else {
+        _librarySounds[folderId] = survivors;
+        final active = _activeSoundPaths[folderId];
+        if (active != null && !survivors.any((e) => e.path == active)) {
+          _activeSoundPaths[folderId] = survivors.first.path;
+        }
+      }
+    }
+    if (changed) {
+      notifyListeners();
+      await _persist();
+    }
   }
 
   Future<void> _persist() => _repository.save(

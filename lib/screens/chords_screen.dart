@@ -38,17 +38,24 @@ class _ChordsScreenState extends State<ChordsScreen> {
   void _refresh() => setState(() {});
 
   Future<void> _exportSongAsPdf(SongData song) async {
-    final pdf = await PdfExportService.generateChordChart(song);
+    try {
+      final pdf = await PdfExportService.generateChordChart(song);
 
-    final savedPath = await PdfExportService.exportPdf(
-      pdf: pdf,
-      songTitle: song.title,
-    );
+      final savedPath = await PdfExportService.exportPdf(
+        pdf: pdf,
+        songTitle: song.title,
+      );
 
-    if (!mounted || savedPath == null) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('PDF exported successfully!')));
+      if (!mounted || savedPath == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF exported successfully!')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF export failed: $error')),
+      );
+    }
   }
 
   Future<String?> _exportSongs(List<SongData> songs) async {
@@ -64,12 +71,21 @@ class _ChordsScreenState extends State<ChordsScreen> {
       final file = File(filePath);
       await file.writeAsString(payload);
 
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(filePath, mimeType: 'application/json')],
-          title: 'Export Songs',
-        ),
-      );
+      try {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(filePath, mimeType: 'application/json')],
+            title: 'Export Songs',
+          ),
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Share failed: $error')),
+          );
+        }
+        return null;
+      }
 
       return filePath;
     }

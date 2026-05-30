@@ -222,22 +222,35 @@ class _PptScreenState extends State<PptScreen> {
       },
     );
 
-    final path = await PptExportService.exportPptx(
-      ppt: ppt,
-      songs: pptSongs,
-      theme: theme,
-      onProgress: (status, progress) {
-        statusNotifier.value = status;
-        progressNotifier.value = progress;
-      },
-      isCancelled: () => isCancelled,
-    );
+    String? path;
+    Object? exportError;
+    try {
+      path = await PptExportService.exportPptx(
+        ppt: ppt,
+        songs: pptSongs,
+        theme: theme,
+        onProgress: (status, progress) {
+          statusNotifier.value = status;
+          progressNotifier.value = progress;
+        },
+        isCancelled: () => isCancelled,
+      );
+    } catch (error) {
+      // Generation/save/share failed — capture so the finally-style cleanup
+      // below always closes the (non-dismissible) progress dialog instead of
+      // leaving the UI frozen.
+      exportError = error;
+    }
 
     if (mounted) {
       if (!isCancelled) {
         Navigator.of(context, rootNavigator: true).pop();
       }
-      if (path != null) {
+      if (exportError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $exportError')),
+        );
+      } else if (path != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('PPTX saved successfully!')),
         );

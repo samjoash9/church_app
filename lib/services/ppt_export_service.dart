@@ -426,9 +426,29 @@ class PptExportService {
     await File(tempFilePath).writeAsBytes(bytes);
 
     if (Platform.isAndroid || Platform.isIOS) {
-      await Share.shareXFiles([
-        XFile(tempFilePath),
-      ], text: 'Export: ${ppt.title}');
+      // Use the modern SharePlus API (matches pdf/json export). share_plus
+      // copies the file into its own provider cache before generating the
+      // content:// URI, so writing to the temp-dir root above is fine.
+      try {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile(
+                tempFilePath,
+                mimeType:
+                    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+              ),
+            ],
+            title: 'Export: ${ppt.title}',
+          ),
+        );
+      } catch (error) {
+        // Share sheet failed (no target app, user dismissal error, provider
+        // issue). The file is already written; surface nothing fatal — the
+        // caller treats a non-null path as success.
+        // ignore: avoid_print
+        print('PPTX share failed: $error');
+      }
       return tempFilePath;
     } else {
       final outputPath = await FilePicker.platform.saveFile(

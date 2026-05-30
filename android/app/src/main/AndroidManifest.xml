@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- file_picker imports audio files. Android 13+ (SDK 33+) gates media
+         access behind the granular READ_MEDIA_* permissions; older versions
+         use READ_EXTERNAL_STORAGE (capped at SDK 32 so it isn't requested on
+         13+ where it's a no-op). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:label="worship_pads"
         android:name="${applicationName}"

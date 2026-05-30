@@ -15,7 +15,7 @@ const _defaultMajorPads = <String, String>{
   'A': 'assets/audio/A_Major_Pad.mp3',
   'B': 'assets/audio/B_Major_Pad.mp3',
   'C': 'assets/audio/C_Major_Pad.mp3',
-  'D': 'assets/audio/D Major Pad.mp3',
+  'D': 'assets/audio/D_Major_Pad.mp3',
   'E': 'assets/audio/E_Major_Pad.mp3',
   'F': 'assets/audio/F_Major_Pad.mp3',
   'G': 'assets/audio/G_Major_Pad.mp3',
