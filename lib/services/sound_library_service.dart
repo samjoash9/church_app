@@ -2,15 +2,26 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/sound_entry.dart';
+import 'sound_repository.dart';
 
 class SoundLibraryService extends ChangeNotifier {
   static final SoundLibraryService _instance = SoundLibraryService._internal();
   factory SoundLibraryService() => _instance;
   SoundLibraryService._internal();
 
+  final _repository = SoundRepository();
+
   Map<String, List<SoundEntry>> _librarySounds = {};
   Map<String, String> _activeSoundPaths = {};
 
+  /// Initializes the library from bundled defaults, then overlays anything the
+  /// user persisted in a previous session so imports and active selections
+  /// survive an app restart.
+  ///
+  /// [initialLibrarySounds] / [initialActiveSoundPaths] are the immutable
+  /// bundled pads. Persisted user state takes precedence per folder; the
+  /// bundled default entries are always re-injected (deduped by path) so they
+  /// can never be lost across app updates.
   void init({
     required Map<String, List<SoundEntry>> initialLibrarySounds,
     required Map<String, String> initialActiveSoundPaths,
@@ -20,7 +31,27 @@ class SoundLibraryService extends ChangeNotifier {
         entry.key: List<SoundEntry>.from(entry.value),
     };
     _activeSoundPaths = Map<String, String>.from(initialActiveSoundPaths);
+
+    final persisted = _repository.load();
+
+    // Overlay persisted folders, keeping bundled default entries present.
+    persisted.sounds.forEach((folderId, savedEntries) {
+      final defaults = _librarySounds[folderId] ?? const <SoundEntry>[];
+      final merged = <SoundEntry>[...savedEntries];
+      for (final def in defaults) {
+        if (!merged.any((e) => e.path == def.path)) merged.add(def);
+      }
+      _librarySounds[folderId] = merged;
+    });
+
+    // Persisted active selection wins over the bundled default.
+    _activeSoundPaths.addAll(persisted.active);
   }
+
+  Future<void> _persist() => _repository.save(
+        sounds: _librarySounds,
+        active: _activeSoundPaths,
+      );
 
   List<SoundEntry> soundsFor(String mode, String key) {
     return List.unmodifiable(_librarySounds['$mode::$key'] ?? const []);
@@ -42,11 +73,13 @@ class SoundLibraryService extends ChangeNotifier {
   void setActiveSoundForFolder(String mode, String key, SoundEntry sound) {
     _activeSoundPaths['$mode::$key'] = sound.path;
     notifyListeners();
+    _persist();
   }
 
   void clearActiveSoundForFolder(String mode, String key) {
     _activeSoundPaths.remove('$mode::$key');
     notifyListeners();
+    _persist();
   }
 
   void removeSoundFromFolder(String mode, String key, SoundEntry sound) {
@@ -66,6 +99,7 @@ class SoundLibraryService extends ChangeNotifier {
       _activeSoundPaths[folderId] = sounds[fallbackIndex].path;
     }
     notifyListeners();
+    _persist();
   }
 
   Future<void> addSoundToFolder(BuildContext context, String mode, String key) async {
@@ -97,8 +131,9 @@ class SoundLibraryService extends ChangeNotifier {
     final sounds = _librarySounds.putIfAbsent(folderId, () => []);
     sounds.add(SoundEntry(name: selectedFile.name, path: filePath, sizeInBytes: fileSizeInBytes));
     _activeSoundPaths.putIfAbsent(folderId, () => filePath);
-    
+
     notifyListeners();
+    _persist();
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

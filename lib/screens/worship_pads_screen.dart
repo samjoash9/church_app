@@ -203,14 +203,10 @@ class _WorshipPadsScreenState extends State<WorshipPadsScreen> {
               ),
               child: Row(
                 children: [
-                  Expanded(child: ModeTab(label: 'Major', isSelected: _showMajor, onTap: () async {
-                    if (!_showMajor) await _stopPlayback();
-                    if (!mounted) return;
+                  Expanded(child: ModeTab(label: 'Major', isSelected: _showMajor, onTap: () {
                     setState(() { _showMajor = true; });
                   })),
-                  Expanded(child: ModeTab(label: 'Minor', isSelected: !_showMajor, onTap: () async {
-                    if (_showMajor) await _stopPlayback();
-                    if (!mounted) return;
+                  Expanded(child: ModeTab(label: 'Minor', isSelected: !_showMajor, onTap: () {
                     setState(() { _showMajor = false; });
                   })),
                 ],

@@ -70,6 +70,10 @@ flutter:
   uses-material-design: true
 
   assets:
+    # Seed data bundled into the build so a fresh install starts with the
+    # existing songs, chords, lineup, and PPTs instead of an empty database.
+    # Regenerate with: dart run tool/export_seed.dart
+    - assets/seed/
     - assets/audio/A_Major_Pad.mp3
     - assets/audio/B_Major_Pad.mp3
     - assets/audio/C_Major_Pad.mp3

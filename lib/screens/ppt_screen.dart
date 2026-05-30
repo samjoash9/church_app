@@ -6,6 +6,7 @@ import '../services/song_repository.dart';
 import '../services/ppt_repository.dart';
 import '../services/ppt_export_service.dart';
 import '../services/ppt_themes.dart';
+import '../services/ppt_outline.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
@@ -480,7 +481,7 @@ class _PptScreenState extends State<PptScreen> {
 
   void _promptPptName(List<String> songIds) {
     final colors = AppColors.of(context);
-    final _nameController = TextEditingController(text: 'Presentation ${DateTime.now().toLocal().toString().split(' ')[0]}');
+    final nameController = TextEditingController(text: 'Presentation ${DateTime.now().toLocal().toString().split(' ')[0]}');
 
     showDialog(
       context: context,
@@ -489,7 +490,7 @@ class _PptScreenState extends State<PptScreen> {
           backgroundColor: colors.surface,
           title: Text('Name your PPT', style: TextStyle(color: colors.textPrimary)),
           content: TextField(
-            controller: _nameController,
+            controller: nameController,
             style: TextStyle(color: colors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Enter PPT name',
@@ -517,7 +518,7 @@ class _PptScreenState extends State<PptScreen> {
             ),
             TextButton(
               onPressed: () async {
-                final title = _nameController.text.trim();
+                final title = nameController.text.trim();
                 if (title.isNotEmpty) {
                   final newPpt = PptData(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -534,6 +535,222 @@ class _PptScreenState extends State<PptScreen> {
               child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
             ),
           ],
+        );
+      },
+    ).then((_) => nameController.dispose());
+  }
+
+  // ── Slide overview ──────────────────────────────────────────────────────
+  /// Resolves a PPT's song IDs to the songs that still exist, in order.
+  List<SongData> _resolvePptSongs(PptData ppt) {
+    final allSongs = SongRepository().songs;
+    final resolved = <SongData>[];
+    for (final id in ppt.songIds) {
+      final match = allSongs.where((s) => s.id == id);
+      if (match.isNotEmpty) resolved.add(match.first);
+    }
+    return resolved;
+  }
+
+  /// Bottom sheet glimpse of the slides a presentation produces. Uses the same
+  /// buildPptOutline grouping as the exporter, so it mirrors the real deck.
+  void _showPptOverview(PptData ppt) {
+    final songs = _resolvePptSongs(ppt);
+    final outline = buildPptOutline(songs);
+    final missingCount = ppt.songIds.length - songs.length;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final colors = AppColors.of(context);
+
+        Widget sectionRow(String label) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Icon(Icons.crop_16_9_outlined, size: 18, color: colors.textMuted),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.0,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ppt.title,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '${outline.totalSlides} slides · ${songs.length} song(s)',
+                            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: colors.textMuted),
+                      onPressed: () => Navigator.of(sheetCtx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(color: colors.border, height: 1),
+              // Outline
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  children: [
+                    // Title slide
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Icon(Icons.title_rounded, size: 18, color: colors.accent),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Title slide',
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ...outline.introSections.map(sectionRow),
+                    const SizedBox(height: 8),
+                    // Songs
+                    if (outline.songs.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          'No songs in this presentation.',
+                          style: TextStyle(color: colors.textMuted, fontSize: 13),
+                        ),
+                      )
+                    else
+                      ...outline.songs.map((s) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.music_note_rounded, size: 18, color: colors.accent),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        s.song.title,
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${s.slideCount} slides',
+                                      style: TextStyle(color: colors.textMuted, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 28, top: 4),
+                                  child: Text(
+                                    'Key of ${s.song.songKey}',
+                                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                                  ),
+                                ),
+                                // Lyric-slide group titles
+                                ...s.lyricSlides.map((slide) {
+                                  // Strip the leading "[Title - " / trailing "]" so
+                                  // only the section label shows.
+                                  final raw = slide.title.replaceAll('[', '').replaceAll(']', '');
+                                  final label = raw.contains(' - ')
+                                      ? raw.substring(raw.indexOf(' - ') + 3)
+                                      : 'Lyrics';
+                                  return Padding(
+                                    padding: const EdgeInsets.only(left: 28, top: 6),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.subdirectory_arrow_right_rounded,
+                                            size: 14, color: colors.textMuted),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            label,
+                                            style: TextStyle(
+                                              color: colors.textSecondary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          )),
+                    const SizedBox(height: 8),
+                    ...outline.outroSections.map(sectionRow),
+                    if (missingCount > 0) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '$missingCount song(s) no longer exist and were skipped.',
+                        style: TextStyle(color: colors.danger, fontSize: 12),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -556,29 +773,31 @@ class _PptScreenState extends State<PptScreen> {
               builder: (context) => SectionHeader(
                 title: 'Presentations',
                 onMenuTap: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-            if (ppts.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.accentSurface,
-                      foregroundColor: colors.onAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: _showCreatePptSheet,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Create PPT', style: TextStyle(fontWeight: FontWeight.bold)),
+                action: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: colors.textPrimary),
+                  color: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colors.border),
                   ),
+                  onSelected: (value) {
+                    if (value == 'create') _showCreatePptSheet();
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'create',
+                      child: Row(
+                        children: [
+                          Icon(Icons.add_rounded, color: colors.textPrimary, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Create PPT', style: TextStyle(color: colors.textPrimary)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
             if (ppts.isEmpty)
               Expanded(
                 child: Center(
@@ -679,9 +898,7 @@ class _PptScreenState extends State<PptScreen> {
                               ),
                             ],
                           ),
-                          onTap: () {
-                            // Can be extended later to view or perform the PPT
-                          },
+                          onTap: () => _showPptOverview(ppt),
                         ),
                       ),
                     );

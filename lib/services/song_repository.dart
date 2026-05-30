@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/song.dart';
+import 'seed_loader.dart';
 
 class SongRepository {
   static final SongRepository _instance = SongRepository._internal();
@@ -14,11 +15,20 @@ class SongRepository {
   Future<void> init() async {
     await Hive.initFlutter();
     _box = await Hive.openBox<String>('songsBox');
+    await seedBoxIfEmpty(_box, 'assets/seed/songs.json');
     _loadFromHive();
   }
 
   void _loadFromHive() {
-    _songs = _box.values.map((jsonStr) => SongData.fromJson(jsonStr)).toList();
+    // Skip any corrupted/malformed entries instead of crashing the whole load.
+    _songs = [];
+    for (final jsonStr in _box.values) {
+      try {
+        _songs.add(SongData.fromJson(jsonStr));
+      } catch (_) {
+        // Ignore unparseable song; keep loading the rest.
+      }
+    }
   }
 
   Future<void> saveSong(SongData song) async {

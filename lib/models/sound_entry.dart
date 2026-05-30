@@ -13,4 +13,18 @@ class SoundEntry {
 
   /// True when this sound is bundled with the app (not user-imported).
   final bool isAsset;
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'path': path,
+        'sizeInBytes': sizeInBytes,
+        'isAsset': isAsset,
+      };
+
+  factory SoundEntry.fromMap(Map<String, dynamic> map) => SoundEntry(
+        name: map['name'] as String? ?? '',
+        path: map['path'] as String? ?? '',
+        sizeInBytes: (map['sizeInBytes'] as num?)?.toInt() ?? 0,
+        isAsset: map['isAsset'] as bool? ?? false,
+      );
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'seed_loader.dart';
 
 class LineupRepository {
   static final LineupRepository _instance = LineupRepository._internal();
@@ -12,7 +13,10 @@ class LineupRepository {
   List<String> get songIds => List.unmodifiable(_songIds);
 
   Future<void> init() async {
+    // Idempotent — safe even if another repository already initialized Hive.
+    await Hive.initFlutter();
     _box = await Hive.openBox<String>('lineupBox');
+    await seedBoxIfEmpty(_box, 'assets/seed/lineup.json');
     _loadFromHive();
   }
 

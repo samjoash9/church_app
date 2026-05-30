@@ -167,7 +167,9 @@ class SongOverviewScreen extends StatelessWidget {
                         elevation: 0,
                       ),
                       onPressed: () {
-                        Navigator.of(context).pushReplacement(
+                        // push (not pushReplacement) so the editor's back
+                        // button returns here instead of skipping this screen.
+                        Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => SongEditorScreen(
                               songId: song.id,

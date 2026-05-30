@@ -236,7 +236,9 @@ class _LineupScreenState extends State<LineupScreen> {
 
     if (mounted) {
       if (!isCancelled) {
-        Navigator.of(context, rootNavigator: true).pop();
+        // Match the navigator used to show the progress dialog (plain
+        // showDialog, not rootNavigator) so the correct route is popped.
+        Navigator.of(context).pop();
       }
       if (path != null) {
         ScaffoldMessenger.of(context).showSnackBar(

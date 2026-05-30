@@ -78,7 +78,11 @@ class PptTheme {
 
   /// Returns the single background asset path (used for themes with one
   /// background, or when [randomizeBackground] is false).
-  String get defaultBackground => backgroundAssets.first;
+  String get defaultBackground {
+    assert(backgroundAssets.isNotEmpty,
+        'PptTheme requires at least one background asset.');
+    return backgroundAssets.first;
+  }
 
   /// Background to use specifically on the main title slide.
   /// Falls back to [defaultBackground] if [titleBackgroundAsset] is not set.

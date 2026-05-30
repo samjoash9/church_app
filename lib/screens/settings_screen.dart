@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_drawer.dart';
 import 'theme_screen.dart';
 
-/// The Settings screen with navigation tiles for Audio Settings, Theme, and About.
+/// The Settings screen with navigation tiles for Theme and About.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -58,15 +58,6 @@ class SettingsScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                 children: [
-                  _SettingsTile(
-                    title: 'Audio Settings',
-                    subtitle: 'Configure audio playback settings',
-                    colors: colors,
-                    onTap: () {
-                      // TODO: Navigate to Audio Settings sub-page
-                    },
-                  ),
-                  const SizedBox(height: 12),
                   _SettingsTile(
                     title: 'Theme',
                     subtitle: 'Customize app appearance',

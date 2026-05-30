@@ -8,6 +8,7 @@ import 'theme/theme_provider.dart';
 import 'services/song_repository.dart';
 import 'services/lineup_repository.dart';
 import 'services/ppt_repository.dart';
+import 'services/sound_repository.dart';
 
 /// Asset paths for each major key's default bundled pad.
 const _defaultMajorPads = <String, String>{
@@ -30,6 +31,7 @@ void main() async {
   await SongRepository().init();
   await LineupRepository().init();
   await PptRepository().init();
+  await SoundRepository().init();
 
   // Build the default library: one bundled sound per Major key.
   final defaultSounds = <String, List<SoundEntry>>{};

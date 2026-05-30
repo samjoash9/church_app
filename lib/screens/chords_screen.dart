@@ -98,9 +98,11 @@ class _ChordsScreenState extends State<ChordsScreen> {
         allowedExtensions: ['json'],
       );
 
-      if (result == null || result.files.single.path == null) return;
+      if (result == null || result.files.isEmpty) return;
+      final pickedPath = result.files.first.path;
+      if (pickedPath == null) return;
 
-      final file = File(result.files.single.path!);
+      final file = File(pickedPath);
       final content = await file.readAsString();
       final decoded = jsonDecode(content);
 

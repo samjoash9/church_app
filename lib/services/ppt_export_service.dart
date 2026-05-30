@@ -9,6 +9,7 @@ import '../models/song.dart';
 import '../models/ppt.dart';
 import '../models/ppt_theme.dart';
 import 'ppt_themes.dart';
+import 'ppt_outline.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -38,10 +39,7 @@ class PptExportService {
       // files inside the isolated widget tree that captureFromWidget creates.
       // Without this wrapper AssetImage silently fails → white/black slide.
       final bytes = await ctx.screenshotController.captureFromWidget(
-        DefaultAssetBundle(
-          bundle: rootBundle,
-          child: builder(size),
-        ),
+        DefaultAssetBundle(bundle: rootBundle, child: builder(size)),
         // With pre-decoded dart:ui.Image objects, RawImage paints
         // synchronously so the delay is only a safety margin.
         delay: const Duration(milliseconds: 150),
@@ -49,11 +47,16 @@ class PptExportService {
         targetSize: size,
       );
       final decoded = img.decodeImage(bytes as Uint8List);
-      final jpegBytes = img.encodeJpg(decoded!, quality: 65);
+      if (decoded == null) {
+        throw Exception('Failed to decode captured slide image.');
+      }
+      final jpegBytes = img.encodeJpg(decoded, quality: 65);
       pres.addSlide(
         SlideBlank()
-          ..background.image =
-              ImageReference.fromBytes(jpegBytes, name: 'slide'),
+          ..background.image = ImageReference.fromBytes(
+            jpegBytes,
+            name: 'slide',
+          ),
       );
     }
 
@@ -86,7 +89,9 @@ class PptExportService {
       if (!theme.randomizeBackground || theme.backgroundAssets.length == 1) {
         return theme.defaultBackground;
       }
-      return theme.backgroundAssets[_random.nextInt(theme.backgroundAssets.length)];
+      return theme.backgroundAssets[_random.nextInt(
+        theme.backgroundAssets.length,
+      )];
     }
 
     /// Builds a background widget from a pre-decoded dart:ui.Image.
@@ -98,9 +103,7 @@ class PptExportService {
         child: FittedBox(
           fit: BoxFit.cover,
           clipBehavior: Clip.hardEdge,
-          child: RawImage(
-            image: decodedImages[assetPath]!,
-          ),
+          child: RawImage(image: decodedImages[assetPath]!),
         ),
       );
     }
@@ -119,7 +122,9 @@ class PptExportService {
               height: size.height,
               child: Stack(
                 children: [
-                  Positioned.fill(child: backgroundWidget(_pickBackground(), size)),
+                  Positioned.fill(
+                    child: backgroundWidget(_pickBackground(), size),
+                  ),
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 64),
@@ -157,7 +162,9 @@ class PptExportService {
               height: size.height,
               child: Stack(
                 children: [
-                  Positioned.fill(child: backgroundWidget(_pickBackground(), size)),
+                  Positioned.fill(
+                    child: backgroundWidget(_pickBackground(), size),
+                  ),
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 64),
@@ -184,7 +191,10 @@ class PptExportService {
     }
 
     /// Lyrics slide (section label + up to 4 lyric lines).
-    Future<void> addLyricsSlide(String sectionTitle, List<String> lyrics) async {
+    Future<void> addLyricsSlide(
+      String sectionTitle,
+      List<String> lyrics,
+    ) async {
       await addJpegWidgetSlide(
         (size) => Directionality(
           textDirection: TextDirection.ltr,
@@ -195,7 +205,9 @@ class PptExportService {
               height: size.height,
               child: Stack(
                 children: [
-                  Positioned.fill(child: backgroundWidget(_pickBackground(), size)),
+                  Positioned.fill(
+                    child: backgroundWidget(_pickBackground(), size),
+                  ),
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(48),
@@ -242,53 +254,13 @@ class PptExportService {
     }
 
     // ── Pre-calculate slide groups ──────────────────────────────────────────
-    int totalSlides = 1 + 3 + 3; // Title + 3 intro sections + 3 outro sections
-    final List<List<Map<String, dynamic>>> allSongsSlideGroups = [];
-
-    for (final song in songs) {
-      totalSlides += 1; // Song title slide
-      final List<Map<String, dynamic>> slideGroups = [];
-      String currentTitle = '[${song.title}]';
-      List<String> currentLyrics = [];
-
-      for (final line in song.lines) {
-        final text = line.lyrics.trim();
-        if (text.isEmpty) continue;
-
-        if (text.startsWith('[') && text.endsWith(']')) {
-          if (currentLyrics.isNotEmpty) {
-            slideGroups.add({
-              'title': currentTitle,
-              'lyrics': List<String>.from(currentLyrics),
-            });
-            currentLyrics.clear();
-          }
-          final sectionName = text.substring(1, text.length - 1);
-          currentTitle = '[${song.title} - $sectionName]';
-        } else {
-          currentLyrics.add(text);
-          if (currentLyrics.length >= 4) {
-            slideGroups.add({
-              'title': currentTitle,
-              'lyrics': List<String>.from(currentLyrics),
-            });
-            currentLyrics.clear();
-            if (!currentTitle.endsWith('(cont.)]')) {
-              currentTitle = currentTitle.replaceAll(']', ' (cont.)]');
-            }
-          }
-        }
-      }
-      if (currentLyrics.isNotEmpty) {
-        slideGroups.add({
-          'title': currentTitle,
-          'lyrics': List<String>.from(currentLyrics),
-        });
-      }
-
-      allSongsSlideGroups.add(slideGroups);
-      totalSlides += slideGroups.length;
-    }
+    // Shared with the in-app overview via buildPptOutline so the preview always
+    // matches the exported deck.
+    final outline = buildPptOutline(songs);
+    final totalSlides = outline.totalSlides;
+    final allSongsSlideGroups = [
+      for (final songOutline in outline.songs) songOutline.lyricSlides,
+    ];
 
     // ── Progress reporting helper ───────────────────────────────────────────
     int currentSlide = 0;
@@ -418,10 +390,7 @@ class PptExportService {
 
       for (final group in slideGroups) {
         if (isCancelled != null && isCancelled()) return null;
-        await addLyricsSlide(
-          group['title'] as String,
-          group['lyrics'] as List<String>,
-        );
+        await addLyricsSlide(group.title, group.lyrics);
         currentSlide++;
         reportProgress('Creating slides for "${song.title}"...');
       }
@@ -457,10 +426,9 @@ class PptExportService {
     await File(tempFilePath).writeAsBytes(bytes);
 
     if (Platform.isAndroid || Platform.isIOS) {
-      await Share.shareXFiles(
-        [XFile(tempFilePath)],
-        text: 'Export: ${ppt.title}',
-      );
+      await Share.shareXFiles([
+        XFile(tempFilePath),
+      ], text: 'Export: ${ppt.title}');
       return tempFilePath;
     } else {
       final outputPath = await FilePicker.platform.saveFile(
@@ -472,8 +440,9 @@ class PptExportService {
 
       if (outputPath == null) return null;
 
-      final finalPath =
-          outputPath.endsWith('.pptx') ? outputPath : '$outputPath.pptx';
+      final finalPath = outputPath.endsWith('.pptx')
+          ? outputPath
+          : '$outputPath.pptx';
       await File(finalPath).writeAsBytes(bytes);
       return finalPath;
     }

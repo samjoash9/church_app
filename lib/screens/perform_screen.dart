@@ -25,8 +25,11 @@ class _PerformScreenState extends State<PerformScreen>
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
+    // Clamp so an out-of-range initialIndex (or empty list) can't cause a
+    // RangeError when indexing widget.songs.
+    final maxIndex = widget.songs.isEmpty ? 0 : widget.songs.length - 1;
+    _currentIndex = widget.initialIndex.clamp(0, maxIndex);
+    _pageController = PageController(initialPage: _currentIndex);
   }
 
   @override
@@ -51,6 +54,36 @@ class _PerformScreenState extends State<PerformScreen>
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+
+    // Guard against an empty song list — nothing to perform, and every
+    // widget.songs[_currentIndex] access below would otherwise throw.
+    if (widget.songs.isEmpty) {
+      return Scaffold(
+        backgroundColor: colors.scaffold,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: Text(
+                  'No songs to perform',
+                  style: TextStyle(color: colors.textMuted, fontSize: 16),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                left: 4,
+                child: IconButton(
+                  icon: Icon(Icons.close_rounded, color: colors.textMuted),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Exit performance',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final isFirst = _currentIndex == 0;
     final isLast = _currentIndex == widget.songs.length - 1;
 
