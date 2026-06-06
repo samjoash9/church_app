@@ -42,7 +42,6 @@ class _WorshipPadsScreenState extends State<WorshipPadsScreen> {
   bool _showMajor = true;
   String? _playingKey;
   String? _playingFolderId;
-  String _selectedDrawerItem = 'Pads';
   final _libraryService = SoundLibraryService();
 
   // The player whose note is currently selected (fading in or at full volume).
@@ -233,10 +232,7 @@ class _WorshipPadsScreenState extends State<WorshipPadsScreen> {
     final colors = AppColors.of(context);
 
     return Scaffold(
-      drawer: AppDrawer(
-        selectedItem: _selectedDrawerItem,
-        onSelectItem: (item) => setState(() => _selectedDrawerItem = item),
-      ),
+      drawer: AppDrawer(selectedItem: 'Pads', onSelectItem: (_) {}),
       body: SafeArea(
         child: Column(
           children: [

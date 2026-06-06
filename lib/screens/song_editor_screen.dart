@@ -52,12 +52,14 @@ class SongEditorScreen extends StatefulWidget {
     required this.title,
     required this.songKey,
     this.initialLines,
+    this.language = 'english',
   });
 
   final String? songId;
   final String title;
   final String songKey;
   final List<SongLineData>? initialLines;
+  final String language;
 
   @override
   State<SongEditorScreen> createState() => _SongEditorScreenState();
@@ -265,6 +267,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
         lyrics: line.lyrics,
         chords: line.chordValues,
       )).toList(),
+      language: widget.language,
     );
   }
 

@@ -15,6 +15,7 @@ class _CreateSongScreenState extends State<CreateSongScreen> {
 
   final _titleController = TextEditingController();
   String? _selectedKey;
+  String _selectedLanguage = 'english';
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -29,6 +30,7 @@ class _CreateSongScreenState extends State<CreateSongScreen> {
     Navigator.of(context).pop({
       'title': _titleController.text.trim(),
       'key': _selectedKey!,
+      'language': _selectedLanguage,
     });
   }
 
@@ -116,6 +118,32 @@ class _CreateSongScreenState extends State<CreateSongScreen> {
                           if (v == null) return 'Please select a key';
                           return null;
                         },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Language dropdown
+                      _FieldLabel(label: 'Language', colors: colors),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedLanguage,
+                        dropdownColor: colors.surface,
+                        iconEnabledColor: colors.accent,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontFamily: 'Roboto',
+                        ),
+                        decoration: _inputDecoration(
+                          colors: colors,
+                          hint: 'Select a language',
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'bisaya', child: Text('Bisaya')),
+                          DropdownMenuItem(value: 'tagalog', child: Text('Tagalog')),
+                          DropdownMenuItem(value: 'english', child: Text('English')),
+                        ],
+                        onChanged: (v) => setState(() => _selectedLanguage = v ?? 'english'),
                       ),
                     ],
                   ),

@@ -316,34 +316,94 @@ class _LineupScreenState extends State<LineupScreen> {
                   // Search Bar
                   if (allSongs.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: TextField(
                         onChanged: (val) {
                           setSheetState(() {
                             _sheetSearchQuery = val.toLowerCase();
                           });
                         },
-                        style: TextStyle(color: colors.textPrimary, fontSize: 14),
+                        style: TextStyle(color: colors.textPrimary, fontSize: 16),
                         decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                           hintText: 'Search songs...',
                           hintStyle: TextStyle(color: colors.textMuted),
-                          prefixIcon: Icon(Icons.search, color: colors.textMuted, size: 20),
-                          isDense: true,
+                          prefixIcon: Icon(Icons.search, color: colors.textMuted),
                           filled: true,
-                          fillColor: colors.surfaceDim,
+                          fillColor: colors.surface,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: colors.border),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: colors.border),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: colors.accent),
                           ),
                         ),
+                      ),
+                    ),
+
+                  // Check All / Clear All buttons
+                  if (allSongs.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      child: Builder(
+                        builder: (context) {
+                          final filteredSongs = allSongs.where((song) {
+                            return song.title.toLowerCase().contains(_sheetSearchQuery) ||
+                                   song.songKey.toLowerCase().contains(_sheetSearchQuery);
+                          }).toList();
+                          final allChecked = filteredSongs.isNotEmpty &&
+                              filteredSongs.every((s) => selected.contains(s.id));
+                          return Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: filteredSongs.isEmpty ? null : () {
+                                  setSheetState(() {
+                                    if (allChecked) {
+                                      for (final s in filteredSongs) {
+                                        selected.remove(s.id);
+                                      }
+                                    } else {
+                                      for (final s in filteredSongs) {
+                                        selected.add(s.id);
+                                      }
+                                    }
+                                  });
+                                },
+                                icon: Icon(
+                                  allChecked ? Icons.check_box : Icons.check_box_outline_blank,
+                                  size: 18,
+                                ),
+                                label: Text(allChecked ? 'Uncheck All' : 'Check All'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: colors.accent,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  textStyle: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: selected.isEmpty ? null : () {
+                                  setSheetState(() {
+                                    selected.clear();
+                                  });
+                                },
+                                icon: const Icon(Icons.clear_all, size: 18),
+                                label: const Text('Clear All'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: colors.textMuted,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  textStyle: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
 

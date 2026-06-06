@@ -29,6 +29,11 @@ class ChordsScreen extends StatefulWidget {
 class _ChordsScreenState extends State<ChordsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final Map<String, bool> _expandedFolders = {
+    'bisaya': true,
+    'tagalog': true,
+    'english': true,
+  };
 
   @override
   void dispose() {
@@ -529,6 +534,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
       id: song.id,
       title: song.title,
       songKey: targetKey,
+      language: song.language,
       lines: song.lines
           .map(
             (line) => SongLineData(
@@ -684,14 +690,14 @@ class _ChordsScreenState extends State<ChordsScreen> {
             side: BorderSide(color: colors.border),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Header icon
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: colors.accentSurface.withAlpha(40),
                     shape: BoxShape.circle,
@@ -699,25 +705,25 @@ class _ChordsScreenState extends State<ChordsScreen> {
                   child: Icon(
                     Icons.music_note_rounded,
                     color: colors.accent,
-                    size: 28,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 Text(
                   song.title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   'Key of ${song.songKey}',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 14),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 16),
 
                 // ── Overview ──
                 _ChordsModalButton(
@@ -734,7 +740,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // ── Edit song ──
                 _ChordsModalButton(
@@ -751,13 +757,14 @@ class _ChordsScreenState extends State<ChordsScreen> {
                           title: song.title,
                           songKey: song.songKey,
                           initialLines: song.lines,
+                          language: song.language,
                         ),
                       ),
                     );
                     _refresh();
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // ── Change key ──
                 _ChordsModalButton(
@@ -770,7 +777,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                     _showChangeKeyDialog(song);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // ── Add to Line up ──
                 _ChordsModalButton(
@@ -802,7 +809,33 @@ class _ChordsScreenState extends State<ChordsScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+
+                // ── Rename ──
+                _ChordsModalButton(
+                  icon: Icons.drive_file_rename_outline_rounded,
+                  label: 'Rename',
+                  colors: colors,
+                  isPrimary: false,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _showRenameSongDialog(song);
+                  },
+                ),
+                const SizedBox(height: 8),
+
+                // ── Move to Folder ──
+                _ChordsModalButton(
+                  icon: Icons.drive_file_move_rounded,
+                  label: 'Move to Folder',
+                  colors: colors,
+                  isPrimary: false,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _showMoveFolderDialog(song);
+                  },
+                ),
+                const SizedBox(height: 8),
 
                 // ── Export as PDF ──
                 _ChordsModalButton(
@@ -815,7 +848,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                     _exportSongAsPdf(song);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // ── Back ──
                 _ChordsModalButton(
@@ -830,6 +863,316 @@ class _ChordsScreenState extends State<ChordsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showRenameSongDialog(SongData song) async {
+    final colors = AppColors.of(context);
+    final controller = TextEditingController(text: song.title);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.border),
+        ),
+        title: Text(
+          'Rename Song',
+          style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w700),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          style: TextStyle(color: colors.textPrimary, fontSize: 16),
+          decoration: InputDecoration(
+            hintText: 'Song title',
+            hintStyle: TextStyle(color: colors.textMuted),
+            filled: true,
+            fillColor: colors.surfaceDim,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: colors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: colors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: colors.accent, width: 1.8),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Save',
+                style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (confirmed != true || !mounted) return;
+
+    final newTitle = controller.text.trim();
+    if (newTitle.isEmpty || newTitle == song.title) return;
+
+    final updated = SongData(
+      id: song.id,
+      title: newTitle,
+      songKey: song.songKey,
+      lines: song.lines,
+      language: song.language,
+    );
+    await SongRepository().saveSong(updated);
+    if (!mounted) return;
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('"${song.title}" renamed to "$newTitle"')),
+    );
+  }
+
+  Future<void> _showMoveFolderDialog(SongData song) async {
+    final colors = AppColors.of(context);
+    const folders = [
+      ('bisaya', 'Bisaya'),
+      ('tagalog', 'Tagalog'),
+      ('english', 'English'),
+    ];
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.border),
+        ),
+        title: Text(
+          'Move to Folder',
+          style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: folders.map((entry) {
+            final isCurrent = song.language == entry.$1;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.folder_rounded,
+                color: isCurrent ? colors.accent : colors.textMuted,
+              ),
+              title: Text(
+                entry.$2,
+                style: TextStyle(
+                  color: isCurrent ? colors.accent : colors.textPrimary,
+                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.normal,
+                ),
+              ),
+              trailing: isCurrent
+                  ? Icon(Icons.check_rounded, color: colors.accent, size: 18)
+                  : null,
+              onTap: isCurrent
+                  ? null
+                  : () async {
+                      Navigator.of(ctx).pop();
+                      final updated = SongData(
+                        id: song.id,
+                        title: song.title,
+                        songKey: song.songKey,
+                        lines: song.lines,
+                        language: entry.$1,
+                      );
+                      await SongRepository().saveSong(updated);
+                      if (!mounted) return;
+                      _refresh();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '"${song.title}" moved to ${entry.$2}'),
+                        ),
+                      );
+                    },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSongTile(SongData song, AppColors colors) {
+    return InkWell(
+      onTap: () => _showSongActionModal(song),
+      borderRadius: BorderRadius.circular(12),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: colors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colors.accentSurface.withAlpha(51),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                song.songKey,
+                style: TextStyle(
+                  color: colors.accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song.title,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Key of ${song.songKey}',
+                    style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: colors.danger),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: colors.surface,
+                    title: Text('Delete Song',
+                        style: TextStyle(color: colors.textPrimary)),
+                    content: Text(
+                      'Are you sure you want to delete "${song.title}"?',
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text('Cancel',
+                            style: TextStyle(color: colors.textMuted)),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          SongRepository().deleteSong(song.id);
+                          Navigator.pop(ctx);
+                          _refresh();
+                        },
+                        child: Text('Delete',
+                            style: TextStyle(
+                                color: colors.danger,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolder({
+    required AppColors colors,
+    required String langKey,
+    required String langLabel,
+    required List<SongData> songs,
+  }) {
+    final isExpanded = _expandedFolders[langKey] ?? true;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() {
+            _expandedFolders[langKey] = !isExpanded;
+          }),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+            child: Row(
+              children: [
+                Icon(
+                  isExpanded ? Icons.folder_open_rounded : Icons.folder_rounded,
+                  color: colors.accent,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  langLabel,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${songs.length}',
+                  style: TextStyle(color: colors.textMuted, fontSize: 14),
+                ),
+                const Spacer(),
+                Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: colors.textMuted,
+                  size: 22,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (isExpanded) ...[
+          if (songs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 32, bottom: 12),
+              child: Text(
+                'No songs',
+                style: TextStyle(color: colors.textMuted, fontSize: 13),
+              ),
+            )
+          else
+            ...songs.map((song) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _buildSongTile(song, colors),
+                )),
+          const SizedBox(height: 4),
+        ],
+      ],
     );
   }
 
@@ -957,7 +1300,6 @@ class _ChordsScreenState extends State<ChordsScreen> {
                       const SizedBox(height: 16),
                     ],
 
-
                     // ── Empty state or Song List ──
                     if (allSongs.isEmpty)
                       Expanded(
@@ -1015,6 +1357,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                                       builder: (_) => SongEditorScreen(
                                         title: result['title'],
                                         songKey: result['key'],
+                                        language: result['language'] ?? 'english',
                                       ),
                                     ),
                                   );
@@ -1065,136 +1408,23 @@ class _ChordsScreenState extends State<ChordsScreen> {
                       )
                     else
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: ListView.separated(
-                            itemCount: filteredSongs.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final song = filteredSongs[index];
-                              return InkWell(
-                                onTap: () {
-                                  _showSongActionModal(song);
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Ink(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.surface,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: colors.border),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: colors.accentSurface.withAlpha(
-                                            51,
-                                          ),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          song.songKey,
-                                          style: TextStyle(
-                                            color: colors.accent,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              song.title,
-                                              style: TextStyle(
-                                                color: colors.textPrimary,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Key of ${song.songKey}',
-                                              style: TextStyle(
-                                                color: colors.textSecondary,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.delete_outline,
-                                          color: colors.danger,
-                                        ),
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              backgroundColor: colors.surface,
-                                              title: Text(
-                                                'Delete Song',
-                                                style: TextStyle(
-                                                  color: colors.textPrimary,
-                                                ),
-                                              ),
-                                              content: Text(
-                                                'Are you sure you want to delete "${song.title}"?',
-                                                style: TextStyle(
-                                                  color: colors.textSecondary,
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context),
-                                                  child: Text(
-                                                    'Cancel',
-                                                    style: TextStyle(
-                                                      color: colors.textMuted,
-                                                    ),
-                                                  ),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    SongRepository().deleteSong(
-                                                      song.id,
-                                                    );
-                                                    Navigator.pop(context);
-                                                    _refresh();
-                                                  },
-                                                  child: Text(
-                                                    'Delete',
-                                                    style: TextStyle(
-                                                      color: colors.danger,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                        child: ListView(
+                          padding: const EdgeInsets.only(top: 16),
+                          children: [
+                            for (final entry in [
+                              ('bisaya', 'Bisaya'),
+                              ('tagalog', 'Tagalog'),
+                              ('english', 'English'),
+                            ])
+                              _buildFolder(
+                                colors: colors,
+                                langKey: entry.$1,
+                                langLabel: entry.$2,
+                                songs: filteredSongs
+                                    .where((s) => s.language == entry.$1)
+                                    .toList(),
+                              ),
+                          ],
                         ),
                       ),
                   ],
@@ -1222,6 +1452,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 builder: (_) => SongEditorScreen(
                   title: result['title'],
                   songKey: result['key'],
+                  language: result['language'] ?? 'english',
                 ),
               ),
             );
@@ -1268,17 +1499,17 @@ class _ChordsModalButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: borderColor, width: 1.2),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 9),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: fg, size: 20),
-                const SizedBox(width: 10),
+                Icon(icon, color: fg, size: 17),
+                const SizedBox(width: 8),
                 Text(
                   label,
                   style: TextStyle(
                     color: fg,
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

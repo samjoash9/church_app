@@ -19,6 +19,15 @@ class PptScreen extends StatefulWidget {
 }
 
 class _PptScreenState extends State<PptScreen> {
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _refresh() => setState(() {});
 
   // ── Theme picker + export ───────────────────────────────────────────────
@@ -774,10 +783,21 @@ class _PptScreenState extends State<PptScreen> {
     final colors = AppColors.of(context);
     final ppts = PptRepository().ppts;
 
+    final filteredPpts = ppts.where((p) =>
+        p.title.toLowerCase().contains(_searchQuery)).toList();
+
     return Scaffold(
       drawer: AppDrawer(
         selectedItem: 'PPT',
         onSelectItem: (_) {},
+      ),
+      floatingActionButton: FloatingActionButton(
+        shape: const CircleBorder(),
+        backgroundColor: colors.accent,
+        foregroundColor: colors.onAccent,
+        elevation: 4,
+        onPressed: _showCreatePptSheet,
+        child: const Icon(Icons.add_rounded),
       ),
       body: SafeArea(
         child: Column(
@@ -786,31 +806,46 @@ class _PptScreenState extends State<PptScreen> {
               builder: (context) => SectionHeader(
                 title: 'Presentations',
                 onMenuTap: () => Scaffold.of(context).openDrawer(),
-                action: PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: colors.textPrimary),
-                  color: colors.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colors.border),
-                  ),
-                  onSelected: (value) {
-                    if (value == 'create') _showCreatePptSheet();
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'create',
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_rounded, color: colors.textPrimary, size: 20),
-                          const SizedBox(width: 12),
-                          Text('Create PPT', style: TextStyle(color: colors.textPrimary)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
+            if (ppts.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 16),
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    hintText: 'Search presentations...',
+                    hintStyle: TextStyle(color: colors.textMuted),
+                    prefixIcon: Icon(Icons.search, color: colors.textMuted),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: colors.textMuted, size: 20),
+                            onPressed: () => setState(() {
+                              _searchController.clear();
+                              _searchQuery = '';
+                            }),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: colors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colors.accent),
+                    ),
+                  ),
+                ),
+              ),
             if (ppts.isEmpty)
               Expanded(
                 child: Center(
@@ -848,13 +883,22 @@ class _PptScreenState extends State<PptScreen> {
                   ),
                 ),
               )
+            else if (filteredPpts.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'No presentations found',
+                    style: TextStyle(color: colors.textMuted),
+                  ),
+                ),
+              )
             else
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: ppts.length,
+                  itemCount: filteredPpts.length,
                   itemBuilder: (context, index) {
-                    final ppt = ppts[index];
+                    final ppt = filteredPpts[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Container(

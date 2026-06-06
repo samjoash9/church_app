@@ -5,12 +5,14 @@ class SongData {
   final String title;
   final String songKey;
   final List<SongLineData> lines;
+  final String language;
 
   SongData({
     required this.id,
     required this.title,
     required this.songKey,
     required this.lines,
+    this.language = 'english',
   });
 
   Map<String, dynamic> toMap() {
@@ -19,6 +21,7 @@ class SongData {
       'title': title,
       'songKey': songKey,
       'lines': lines.map((x) => x.toMap()).toList(),
+      'language': language,
     };
   }
 
@@ -28,6 +31,7 @@ class SongData {
       title: map['title'] ?? '',
       songKey: map['songKey'] ?? '',
       lines: List<SongLineData>.from(map['lines']?.map((x) => SongLineData.fromMap(x)) ?? []),
+      language: map['language'] ?? 'english',
     );
   }
 
