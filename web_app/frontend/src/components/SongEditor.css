@@ -1,0 +1,260 @@
+.song-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  flex-wrap: wrap;
+}
+
+.mode-toggle {
+  display: flex;
+  background: var(--primary-color);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-btn {
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.mode-btn.active {
+  background: var(--surface-color);
+  color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.key-select {
+  padding: 0.4rem 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: auto;
+}
+
+.editor-info {
+  padding: 0.6rem 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+/* Lyrics Editor */
+.lyrics-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.section-block {
+  background: var(--surface-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+}
+
+.section-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background var(--transition-fast);
+}
+
+.section-header:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.section-header.filled {
+  background: var(--primary-color);
+  color: white;
+}
+
+.section-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.section-textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Chords View */
+.chords-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chord-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chord-line.section-header-line {
+  margin-top: 1rem;
+}
+
+.chord-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  height: 26px;
+  overflow: hidden;
+}
+
+.chord-slot {
+  height: 26px;
+  min-width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: rgba(99, 102, 241, 0.08);
+  color: rgba(99, 102, 241, 0.5);
+}
+
+.chord-slot.has-chord {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--primary-color);
+  font-weight: 700;
+  padding: 0 6px;
+}
+
+.chord-slot.hidden-slot {
+  background: transparent;
+  color: transparent;
+  cursor: default;
+}
+
+.chord-slot:hover:not(.hidden-slot) {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.lyric-text {
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 0.3px;
+}
+
+.lyric-text.section-label {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.spacer-line {
+  height: 16px;
+}
+
+/* Chord picker modal (self-contained so it works wherever the editor mounts) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.chord-picker {
+  width: 90%;
+  max-width: 420px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.chord-picker h3 { margin: 0; text-align: center; }
+
+.chord-picker .modal-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: -0.5rem;
+}
+
+.chord-picker label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: -0.5rem;
+}
+
+.chord-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.chord-chip {
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-border);
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.chord-chip:hover { background: rgba(99, 102, 241, 0.25); }
+.chord-chip.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.chord-picker .modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+.chord-picker .modal-actions .btn { flex: 1; }

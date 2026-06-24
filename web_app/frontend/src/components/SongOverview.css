@@ -1,0 +1,77 @@
+.overview-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.overview-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.overview-header h3 {
+  margin: 0;
+  flex: 1;
+  font-size: 1.25rem;
+}
+
+.overview-key {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+}
+
+.overview-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.5rem 1rem;
+}
+
+.ov-spacer { height: 1rem; }
+
+.ov-section {
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.ov-line { margin-bottom: 0.75rem; }
+
+.ov-chords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.ov-chord {
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 0.85rem;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.ov-lyric {
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.overview-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.overview-footer .btn { flex: 1; }

@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist SQLite DB across restarts
+      - church-db:/app/backend/data
+      # Mount Flutter app assets (audio, backgrounds, etc.)
+      - ../assets:/app/assets:ro
+    environment:
+      - ASSETS_PATH=/app/assets
+      - DB_DIR=/app/backend/data
+    restart: unless-stopped
+
+volumes:
+  church-db:

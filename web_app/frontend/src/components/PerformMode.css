@@ -1,0 +1,148 @@
+.perform-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.perform-topbar {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.perform-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.perform-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+.perform-title { flex: 1; text-align: center; }
+.perform-song-name { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.perform-counter { font-size: 0.8rem; color: var(--text-secondary); }
+
+.perform-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+}
+.perform-dot {
+  width: 8px; height: 8px;
+  border-radius: 4px;
+  background: var(--surface-border);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.perform-dot.active { width: 20px; background: var(--primary-color); }
+
+.perform-keybar {
+  text-align: center;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.perform-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+}
+.perform-chip {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.perform-chip.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.perform-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem clamp(1rem, 8vw, 6rem);
+}
+
+.perform-spacer { height: 1.25rem; }
+.perform-section {
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 1.4rem;
+  margin: 1.25rem 0 0.75rem;
+}
+.perform-line { margin-bottom: 1rem; }
+.perform-chords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+.perform-chord {
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 1.15rem;
+  background: rgba(99,102,241,0.15);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+}
+.perform-lyric {
+  color: var(--text-primary);
+  font-size: 1.6rem;
+  line-height: 1.45;
+}
+
+.perform-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--surface-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  color: var(--text-primary);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.perform-nav:hover:not(:disabled) { background: var(--primary-color); }
+.perform-nav:disabled { opacity: 0.25; cursor: default; }
+.perform-nav.prev { left: 1rem; }
+.perform-nav.next { right: 1rem; }
+
+.perform-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 600px) {
+  .perform-lyric { font-size: 1.25rem; }
+  .perform-nav { width: 44px; height: 44px; font-size: 1.5rem; }
+}
