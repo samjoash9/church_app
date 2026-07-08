@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
+﻿from fastapi import FastAPI, APIRouter, Cookie, Depends, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
@@ -9,10 +9,17 @@ import io
 import uuid
 
 import models, schemas, database, ppt_themes
+import auth
 
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Worship Pads API")
+
+
+@app.get("/api/health")
+def health():
+    """Unauthenticated liveness probe for the container healthcheck."""
+    return {"status": "ok"}
 
 # ---------------------------------------------------------------------------
 # Bold font instancing (used by /api/export/ppt)
@@ -48,9 +55,11 @@ def _bold_variant_path(regular_path: str) -> str:
     _BOLD_FONT_CACHE[regular_path] = bold_path
     return bold_path
 
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,15 +68,56 @@ app.add_middleware(
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(os.environ.get("DB_DIR", "."), "uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
+ALLOWED_AUDIO_TYPES = {"audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg", "audio/aac", "audio/mp4"}
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+@app.post("/api/auth/login")
+def login(response: Response, request: Request, body: schemas.LoginRequest):
+    client_ip = request.client.host if request.client else "unknown"
+    auth.check_rate_limit(client_ip)
+    if not auth.verify_password(body.password):
+        auth.record_failed_attempt(client_ip)
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    auth.clear_attempts(client_ip)
+    token = auth.create_token()
+    response.set_cookie(
+        key=auth.COOKIE_NAME,
+        value=token,
+        max_age=auth.TOKEN_TTL_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return {"message": "logged in"}
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(auth.COOKIE_NAME, path="/")
+    return {"message": "logged out"}
+
+@app.get("/api/auth/status")
+def auth_status(church_session: str | None = Cookie(default=None)):
+    return {"authenticated": auth.is_valid_token(church_session)}
+
+# All routes below require a valid session cookie — registered on this
+# router (not `app` directly) so no individual route can be added later
+# without the guard.
+api = APIRouter(dependencies=[Depends(auth.require_auth)])
+
 # ---------------------------------------------------------------------------
 # Songs
 # ---------------------------------------------------------------------------
 
-@app.get("/api/songs", response_model=List[schemas.SongData])
+@api.get("/api/songs", response_model=List[schemas.SongData])
 def get_songs(db: Session = Depends(database.get_db)):
     return db.query(models.Song).all()
 
-@app.post("/api/songs", response_model=schemas.SongData)
+@api.post("/api/songs", response_model=schemas.SongData)
 def create_song(song: schemas.SongDataCreate, db: Session = Depends(database.get_db)):
     db_song = db.query(models.Song).filter(models.Song.id == song.id).first()
     if db_song:
@@ -85,7 +135,7 @@ def create_song(song: schemas.SongDataCreate, db: Session = Depends(database.get
     db.refresh(new_song)
     return new_song
 
-@app.put("/api/songs/{song_id}", response_model=schemas.SongData)
+@api.put("/api/songs/{song_id}", response_model=schemas.SongData)
 def update_song(song_id: str, song: schemas.SongDataCreate, db: Session = Depends(database.get_db)):
     db_song = db.query(models.Song).filter(models.Song.id == song_id).first()
     if not db_song:
@@ -98,7 +148,7 @@ def update_song(song_id: str, song: schemas.SongDataCreate, db: Session = Depend
     db.refresh(db_song)
     return db_song
 
-@app.delete("/api/songs/{song_id}")
+@api.delete("/api/songs/{song_id}")
 def delete_song(song_id: str, db: Session = Depends(database.get_db)):
     db_song = db.query(models.Song).filter(models.Song.id == song_id).first()
     if not db_song:
@@ -111,11 +161,11 @@ def delete_song(song_id: str, db: Session = Depends(database.get_db)):
 # Lineup
 # ---------------------------------------------------------------------------
 
-@app.get("/api/lineup", response_model=List[schemas.LineupItem])
+@api.get("/api/lineup", response_model=List[schemas.LineupItem])
 def get_lineup(db: Session = Depends(database.get_db)):
     return db.query(models.LineupEntry).order_by(models.LineupEntry.order_index).all()
 
-@app.post("/api/lineup", response_model=schemas.LineupItem)
+@api.post("/api/lineup", response_model=schemas.LineupItem)
 def add_to_lineup(item: schemas.LineupItemCreate, db: Session = Depends(database.get_db)):
     existing = db.query(models.LineupEntry).filter(models.LineupEntry.song_id == item.song_id).first()
     if existing:
@@ -128,7 +178,7 @@ def add_to_lineup(item: schemas.LineupItemCreate, db: Session = Depends(database
     db.refresh(new_item)
     return new_item
 
-@app.put("/api/lineup/reorder")
+@api.put("/api/lineup/reorder")
 def reorder_lineup(body: schemas.LineupReorder, db: Session = Depends(database.get_db)):
     entries = db.query(models.LineupEntry).all()
     entry_map = {e.song_id: e for e in entries}
@@ -138,13 +188,13 @@ def reorder_lineup(body: schemas.LineupReorder, db: Session = Depends(database.g
     db.commit()
     return {"message": "reordered"}
 
-@app.delete("/api/lineup/clear")
+@api.delete("/api/lineup/clear")
 def clear_lineup(db: Session = Depends(database.get_db)):
     db.query(models.LineupEntry).delete()
     db.commit()
     return {"message": "cleared"}
 
-@app.delete("/api/lineup/{item_id}")
+@api.delete("/api/lineup/{item_id}")
 def remove_from_lineup(item_id: int, db: Session = Depends(database.get_db)):
     db_item = db.query(models.LineupEntry).filter(models.LineupEntry.id == item_id).first()
     if not db_item:
@@ -157,11 +207,11 @@ def remove_from_lineup(item_id: int, db: Session = Depends(database.get_db)):
 # PPT Presentations
 # ---------------------------------------------------------------------------
 
-@app.get("/api/ppts", response_model=List[schemas.PptData])
+@api.get("/api/ppts", response_model=List[schemas.PptData])
 def get_ppts(db: Session = Depends(database.get_db)):
     return db.query(models.PptPresentation).all()
 
-@app.post("/api/ppts", response_model=schemas.PptData)
+@api.post("/api/ppts", response_model=schemas.PptData)
 def create_ppt(ppt: schemas.PptCreate, db: Session = Depends(database.get_db)):
     existing = db.query(models.PptPresentation).filter(models.PptPresentation.id == ppt.id).first()
     if existing:
@@ -172,7 +222,7 @@ def create_ppt(ppt: schemas.PptCreate, db: Session = Depends(database.get_db)):
     db.refresh(new_ppt)
     return new_ppt
 
-@app.put("/api/ppts/{ppt_id}", response_model=schemas.PptData)
+@api.put("/api/ppts/{ppt_id}", response_model=schemas.PptData)
 def update_ppt(ppt_id: str, ppt: schemas.PptCreate, db: Session = Depends(database.get_db)):
     db_ppt = db.query(models.PptPresentation).filter(models.PptPresentation.id == ppt_id).first()
     if not db_ppt:
@@ -183,7 +233,7 @@ def update_ppt(ppt_id: str, ppt: schemas.PptCreate, db: Session = Depends(databa
     db.refresh(db_ppt)
     return db_ppt
 
-@app.delete("/api/ppts/{ppt_id}")
+@api.delete("/api/ppts/{ppt_id}")
 def delete_ppt(ppt_id: str, db: Session = Depends(database.get_db)):
     db_ppt = db.query(models.PptPresentation).filter(models.PptPresentation.id == ppt_id).first()
     if not db_ppt:
@@ -196,21 +246,27 @@ def delete_ppt(ppt_id: str, db: Session = Depends(database.get_db)):
 # Worship Pads: sound library
 # ---------------------------------------------------------------------------
 
-@app.get("/api/sounds", response_model=List[schemas.SoundEntryData])
+@api.get("/api/sounds", response_model=List[schemas.SoundEntryData])
 def get_sounds(db: Session = Depends(database.get_db)):
     return db.query(models.SoundEntry).all()
 
-@app.post("/api/sounds/upload", response_model=schemas.SoundEntryData)
+@api.post("/api/sounds/upload", response_model=schemas.SoundEntryData)
 async def upload_sound(
     mode: str = Form(...),
     key: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(database.get_db),
 ):
-    ext = os.path.splitext(file.filename or "")[1] or ".mp3"
+    if file.content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio type: {file.content_type}")
+
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 25 MB)")
+
+    ext = os.path.splitext(file.filename or "")[1][:10] or ".mp3"
     stored_name = f"{uuid.uuid4().hex}{ext}"
     dest_path = os.path.join(UPLOAD_DIR, stored_name)
-    contents = await file.read()
     with open(dest_path, "wb") as f:
         f.write(contents)
 
@@ -228,7 +284,7 @@ async def upload_sound(
     db.refresh(new_sound)
     return new_sound
 
-@app.delete("/api/sounds/{sound_id}")
+@api.delete("/api/sounds/{sound_id}")
 def delete_sound(sound_id: int, db: Session = Depends(database.get_db)):
     sound = db.query(models.SoundEntry).filter(models.SoundEntry.id == sound_id).first()
     if not sound:
@@ -241,7 +297,7 @@ def delete_sound(sound_id: int, db: Session = Depends(database.get_db)):
     db.commit()
     return {"message": "deleted"}
 
-@app.put("/api/sounds/{sound_id}/activate", response_model=schemas.SoundEntryData)
+@api.put("/api/sounds/{sound_id}/activate", response_model=schemas.SoundEntryData)
 def activate_sound(sound_id: int, db: Session = Depends(database.get_db)):
     sound = db.query(models.SoundEntry).filter(models.SoundEntry.id == sound_id).first()
     if not sound:
@@ -255,7 +311,7 @@ def activate_sound(sound_id: int, db: Session = Depends(database.get_db)):
     db.refresh(sound)
     return sound
 
-@app.put("/api/sounds/{mode}/{key}/clear-active")
+@api.put("/api/sounds/{mode}/{key}/clear-active")
 def clear_active_sound(mode: str, key: str, db: Session = Depends(database.get_db)):
     db.query(models.SoundEntry).filter(
         models.SoundEntry.mode == mode,
@@ -268,7 +324,7 @@ def clear_active_sound(mode: str, key: str, db: Session = Depends(database.get_d
 # Export: PDF
 # ---------------------------------------------------------------------------
 
-@app.post("/api/export/pdf")
+@api.post("/api/export/pdf")
 def export_pdf(req: schemas.ExportPdfRequest, db: Session = Depends(database.get_db)):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors as rl_colors
@@ -384,7 +440,7 @@ def export_pdf(req: schemas.ExportPdfRequest, db: Session = Depends(database.get
 # Export: PPTX
 # ---------------------------------------------------------------------------
 
-@app.get("/api/ppt-themes")
+@api.get("/api/ppt-themes")
 def list_ppt_themes():
     """Themes for the export picker; previews are served from /media/assets."""
     return [
@@ -397,7 +453,7 @@ def list_ppt_themes():
     ]
 
 
-@app.post("/api/export/ppt")
+@api.post("/api/export/ppt")
 def export_ppt(req: schemas.ExportPptRequest, db: Session = Depends(database.get_db)):
     """Builds the same deck as the mobile exporter (ppt_export_service.dart):
     themed title slide, intro sections, per-song title + lyric slides, outro
@@ -592,6 +648,8 @@ def export_ppt(req: schemas.ExportPptRequest, db: Session = Depends(database.get
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+app.include_router(api)
 
 # ---------------------------------------------------------------------------
 # Static assets + frontend

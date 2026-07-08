@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Music2, ListMusic, FileText, Settings, Sparkles, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Music2, ListMusic, FileText, Settings, Sparkles, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/chords', label: 'Chords', icon: Music2 },
@@ -13,6 +14,7 @@ const STORAGE_KEY = 'sidebar-collapsed'
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
+  const { logout } = useAuth()
 
   function toggle() {
     setCollapsed((c) => {
@@ -63,11 +65,18 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      {!collapsed && (
-        <div className="px-6 py-5 text-xs text-text-muted border-t border-border">
-          Worship Pads Web · v1.0
-        </div>
-      )}
+      <div className={`border-t border-border py-3 ${collapsed ? 'px-2' : 'px-3'}`}>
+        <button
+          onClick={logout}
+          title="Sign out"
+          className={`flex items-center gap-3 w-full py-2.5 rounded-xl text-sm font-medium text-text-secondary hover:bg-drawer-selected/60 hover:text-text-primary transition-colors ${
+            collapsed ? 'justify-center px-0' : 'px-4'
+          }`}
+        >
+          <LogOut size={19} className="shrink-0" />
+          {!collapsed && 'Sign out'}
+        </button>
+      </div>
     </aside>
   )
 }

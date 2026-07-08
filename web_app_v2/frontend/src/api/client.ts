@@ -2,17 +2,39 @@ import type { Song, LineupItem, Ppt, SoundEntry } from '../types'
 
 const BASE = '/api'
 
+export class UnauthorizedError extends Error {}
+
+// Set by AuthProvider so any request anywhere in the app can flip the
+// logged-in state to false the moment the session cookie stops validating
+// (expiry, logout in another tab), without every call site needing to
+// catch UnauthorizedError itself.
+let unauthorizedHandler: (() => void) | null = null
+export function setUnauthorizedHandler(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     headers: options?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
     ...options,
   })
+  if (res.status === 401) {
+    if (path !== '/auth/status') unauthorizedHandler?.()
+    throw new UnauthorizedError('Not authenticated')
+  }
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}))
     throw new Error(detail.detail || `Request failed: ${res.status}`)
   }
   if (res.status === 204) return undefined as T
   return res.json()
+}
+
+export const auth = {
+  login: (password: string) => req<{ message: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
+  logout: () => req<{ message: string }>('/auth/logout', { method: 'POST' }),
+  status: () => req<{ authenticated: boolean }>('/auth/status'),
 }
 
 export const api = {
@@ -51,9 +73,14 @@ export const api = {
   exportPdf: async (songIds: string[]): Promise<Blob> => {
     const res = await fetch(`${BASE}/export/pdf`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ song_ids: songIds }),
     })
+    if (res.status === 401) {
+      unauthorizedHandler?.()
+      throw new UnauthorizedError('Not authenticated')
+    }
     if (!res.ok) throw new Error('PDF export failed')
     return res.blob()
   },
@@ -61,9 +88,14 @@ export const api = {
   exportPpt: async (songIds: string[], theme: string): Promise<Blob> => {
     const res = await fetch(`${BASE}/export/ppt`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ song_ids: songIds, theme }),
     })
+    if (res.status === 401) {
+      unauthorizedHandler?.()
+      throw new UnauthorizedError('Not authenticated')
+    }
     if (!res.ok) throw new Error('PPT export failed')
     return res.blob()
   },

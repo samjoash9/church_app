@@ -4,8 +4,15 @@ import { ChordsPage } from './pages/ChordsPage'
 import { LineupPage } from './pages/LineupPage'
 import { PptPage } from './pages/PptPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { LoginPage } from './pages/LoginPage'
+import { useAuth } from './auth/AuthContext'
 
 export default function App() {
+  const { authenticated, loading } = useAuth()
+
+  if (loading) return null
+  if (!authenticated) return <LoginPage />
+
   return (
     <Layout>
       <Routes>

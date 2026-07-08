@@ -11,7 +11,17 @@ services:
     environment:
       - ASSETS_PATH=/app/assets
       - DB_DIR=/app/backend/data
+      - SECRET_KEY=${SECRET_KEY}
+      - APP_PASSWORD_HASH=${APP_PASSWORD_HASH}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     restart: unless-stopped
+    healthcheck:
+      # python, not curl — python:3.12-slim ships no curl.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   church-db:

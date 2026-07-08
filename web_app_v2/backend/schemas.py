@@ -1,6 +1,9 @@
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
+class LoginRequest(BaseModel):
+    password: str
+
 class SongLineData(BaseModel):
     lyrics: str
     chords: List[str]

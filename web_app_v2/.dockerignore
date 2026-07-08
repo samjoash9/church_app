@@ -1,0 +1,23 @@
+# Python
+**/venv
+**/__pycache__
+**/*.pyc
+**/.font_cache
+
+# Node
+**/node_modules
+**/dist
+
+# Data & secrets — never bake into image
+**/*.db
+**/.env
+**/uploads
+**/data
+
+# Logs
+**/*.log
+
+# VCS / misc
+.git
+.gitignore
+**/.DS_Store
