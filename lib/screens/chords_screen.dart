@@ -9,6 +9,9 @@ import 'package:share_plus/share_plus.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/modal_action_button.dart';
+import '../widgets/key_avatar.dart';
+import '../widgets/sheet_handle.dart';
 import '../models/song.dart';
 import 'create_song_screen.dart';
 import 'song_editor_screen.dart';
@@ -214,17 +217,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
               ),
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colors.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
+                  SheetHandle(colors: colors),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Row(
@@ -384,23 +377,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
                                     horizontal: 20,
                                     vertical: 4,
                                   ),
-                                  leading: Container(
-                                    width: 42,
-                                    height: 42,
-                                    decoration: BoxDecoration(
-                                      color: colors.accentSurface.withAlpha(51),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      song.songKey,
-                                      style: TextStyle(
-                                        color: colors.accent,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
+                                  leading: KeyAvatar(songKey: song.songKey, colors: colors),
                                   title: Text(
                                     song.title,
                                     style: TextStyle(
@@ -726,7 +703,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Overview ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.visibility_rounded,
                   label: 'Overview',
                   colors: colors,
@@ -743,7 +721,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Edit song ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.edit_rounded,
                   label: 'Edit Song',
                   colors: colors,
@@ -767,7 +746,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Change key ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.swap_vert_rounded,
                   label: 'Change Key',
                   colors: colors,
@@ -780,7 +760,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Add to Line up ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.playlist_add_rounded,
                   label: 'Add to Line up',
                   colors: colors,
@@ -812,7 +793,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Rename ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.drive_file_rename_outline_rounded,
                   label: 'Rename',
                   colors: colors,
@@ -825,7 +807,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Move to Folder ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.drive_file_move_rounded,
                   label: 'Move to Folder',
                   colors: colors,
@@ -838,7 +821,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Export as PDF ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.picture_as_pdf_rounded,
                   label: 'Export as PDF',
                   colors: colors,
@@ -851,7 +835,8 @@ class _ChordsScreenState extends State<ChordsScreen> {
                 const SizedBox(height: 8),
 
                 // ── Back ──
-                _ChordsModalButton(
+                ModalActionButton(
+                  compact: true,
                   icon: Icons.arrow_back_rounded,
                   label: 'Back',
                   colors: colors,
@@ -1029,23 +1014,7 @@ class _ChordsScreenState extends State<ChordsScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: colors.accentSurface.withAlpha(51),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                song.songKey,
-                style: TextStyle(
-                  color: colors.accent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-            ),
+            KeyAvatar(songKey: song.songKey, colors: colors, size: 36, fontSize: 13),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1460,63 +1429,6 @@ class _ChordsScreenState extends State<ChordsScreen> {
           _refresh();
         },
         child: const Icon(Icons.add_rounded, size: 32),
-      ),
-    );
-  }
-}
-
-class _ChordsModalButton extends StatelessWidget {
-  const _ChordsModalButton({
-    required this.icon,
-    required this.label,
-    required this.colors,
-    required this.isPrimary,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final AppColors colors;
-  final bool isPrimary;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isPrimary ? colors.accentSurface : colors.surfaceDim;
-    final fg = isPrimary ? colors.onAccent : colors.textPrimary;
-    final borderColor = isPrimary ? colors.accentSurface : colors.border;
-
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.2),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: fg, size: 17),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

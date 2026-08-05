@@ -10,6 +10,8 @@ import '../services/ppt_outline.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/key_avatar.dart';
+import '../widgets/sheet_handle.dart';
 
 class PptScreen extends StatefulWidget {
   const PptScreen({super.key});
@@ -293,17 +295,7 @@ class _PptScreenState extends State<PptScreen> {
               child: Column(
                 children: [
                   // Handle bar
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colors.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
+                  SheetHandle(colors: colors),
                   // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -410,23 +402,7 @@ class _PptScreenState extends State<PptScreen> {
                               final isChecked = selected.contains(song.id);
                               return ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                leading: Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: colors.accentSurface.withAlpha(51),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    song.songKey,
-                                    style: TextStyle(
-                                      color: colors.accent,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
+                                leading: KeyAvatar(songKey: song.songKey, colors: colors),
                                 title: Text(
                                   song.title,
                                   style: TextStyle(
@@ -618,17 +594,7 @@ class _PptScreenState extends State<PptScreen> {
           child: Column(
             children: [
               // Handle bar
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+              SheetHandle(colors: colors),
               // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),

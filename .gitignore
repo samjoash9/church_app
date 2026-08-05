@@ -44,3 +44,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# web_app_v2
+web_app_v2/backend/venv/
+web_app_v2/backend/__pycache__/
+web_app_v2/backend/*.db
+web_app_v2/backend/data/
+web_app_v2/backend/uploads/
+web_app_v2/backend/.font_cache/
+web_app_v2/backend/*.log
+web_app_v2/frontend/node_modules/
+web_app_v2/frontend/dist/
+web_app_v2/frontend/*.log
+web_app_v2/.env

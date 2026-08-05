@@ -1,0 +1,54 @@
+# Build context is the repo root. Keep only what the image needs:
+#   web_app_v2/backend, web_app_v2/frontend (src), assets/
+# Exclude everything else — Flutter app, build artifacts, secrets, data.
+
+# --- Flutter / Dart app (not part of the web image) ---
+.dart_tool/
+.idea/
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+build/
+test/
+tool/
+vendor/
+lib/
+assets/asset.py
+*.iml
+pubspec.lock
+.flutter-plugins-dependencies
+.metadata
+
+# --- Frontend: all-in-one image bakes the built dist/; exclude source/deps ---
+web_app_v2/frontend/node_modules/
+web_app_v2/frontend/src/
+web_app_v2/frontend/public/
+web_app_v2/frontend/*.ts
+web_app_v2/frontend/*.js
+web_app_v2/frontend/*.json
+web_app_v2/frontend/tsconfig.tsbuildinfo
+
+# --- 145M worship-pad audio: unused by the web app, keep it out of the image ---
+assets/audio/
+
+# --- web_app_v2 backend: exclude heavy/build/secret paths ---
+web_app_v2/backend/venv/
+web_app_v2/backend/__pycache__/
+web_app_v2/backend/.font_cache/
+
+# --- Data & secrets — never bake into image ---
+**/*.db
+**/.env
+web_app_v2/backend/uploads/
+web_app_v2/backend/data/
+
+# --- Logs / VCS / misc ---
+**/*.log
+**/*.pyc
+.git/
+.gitignore
+**/.DS_Store
+.claude/

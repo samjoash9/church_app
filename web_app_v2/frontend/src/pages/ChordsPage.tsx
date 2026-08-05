@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Search, Folder, FolderOpen, ChevronDown, ChevronUp, Plus, Trash2,
   Eye, Pencil, ListPlus, FileText, ArrowUpDown, FolderInput, FileDown, ArrowLeft, Check,
+  Upload, FileJson,
 } from 'lucide-react'
 import { TopBar } from '../components/TopBar'
 import { Modal } from '../components/Modal'
@@ -24,9 +25,39 @@ export function ChordsPage() {
   const [actionSong, setActionSong] = useState<Song | null>(null)
   const [overviewSong, setOverviewSong] = useState<Song | null>(null)
   const [deleteSong, setDeleteSong] = useState<Song | null>(null)
+  const [exportMode, setExportMode] = useState<'json' | 'pdf' | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = () => api.songs.list().then(setSongs).catch(() => {})
   useEffect(() => { refresh() }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    setImporting(true)
+    try {
+      const r = await api.songs.import(file)
+      await refresh()
+      const parts: string[] = []
+      if (r.imported) parts.push(`${r.imported} added`)
+      if (r.updated) parts.push(`${r.updated} updated`)
+      if (r.skipped) parts.push(`${r.skipped} skipped`)
+      setToast(parts.length ? `Import complete: ${parts.join(', ')}.` : 'No songs imported.')
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Import failed.')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
@@ -35,7 +66,34 @@ export function ChordsPage() {
 
   return (
     <div>
-      <TopBar title="Chords" />
+      <TopBar
+        title="Chords"
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" icon={<Upload size={16} />} disabled={importing} onClick={() => fileInputRef.current?.click()}>
+              <span className="hidden lg:inline">{importing ? 'Importing…' : 'Import'}</span>
+            </Button>
+            {songs.length > 0 && (
+              <>
+                <Button variant="secondary" icon={<FileJson size={16} />} onClick={() => setExportMode('json')}>
+                  <span className="hidden lg:inline">Export </span>Songs
+                </Button>
+                <Button variant="secondary" icon={<FileDown size={16} />} onClick={() => setExportMode('pdf')}>
+                  <span className="hidden lg:inline">Export </span>PDF
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
       <div className={`p-5 md:p-8 ${songs.length > 0 ? 'max-w-3xl mx-auto' : ''}`}>
         {songs.length > 0 && (
           <div className="relative mb-6">
@@ -153,7 +211,140 @@ export function ChordsPage() {
         onConfirm={() => { if (deleteSong) api.songs.remove(deleteSong.id).then(refresh) }}
         onClose={() => setDeleteSong(null)}
       />
+
+      {exportMode && (
+        <ExportSelectModal
+          songs={songs}
+          mode={exportMode}
+          onClose={() => setExportMode(null)}
+          onDone={(msg) => { setExportMode(null); if (msg) setToast(msg) }}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-30 px-4 py-3 rounded-xl bg-surface border border-border shadow-lg text-sm text-text-primary max-w-[90vw]">
+          {toast}
+        </div>
+      )}
     </div>
+  )
+}
+
+function ExportSelectModal({
+  songs,
+  mode,
+  onClose,
+  onDone,
+}: {
+  songs: Song[]
+  mode: 'json' | 'pdf'
+  onClose: () => void
+  onDone: (toast?: string) => void
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase()
+    return songs.filter((s) => s.title.toLowerCase().includes(q) || s.songKey.toLowerCase().includes(q))
+  }, [songs, query])
+
+  const allSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.id))
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allSelected) filtered.forEach((s) => next.delete(s.id))
+      else filtered.forEach((s) => next.add(s.id))
+      return next
+    })
+  }
+
+  async function doExport() {
+    const ids = songs.filter((s) => selected.has(s.id)).map((s) => s.id)
+    if (!ids.length) return
+    setBusy(true)
+    try {
+      if (mode === 'json') {
+        const blob = await api.songs.export(ids)
+        downloadBlob(blob, `songs_export_${new Date().toISOString().slice(0, 10)}.json`)
+        onDone(`Exported ${ids.length} song${ids.length > 1 ? 's' : ''} to JSON.`)
+      } else {
+        const blob = await api.exportPdf(ids)
+        downloadBlob(blob, ids.length > 1 ? 'chord_charts.pdf' : `${songs.find((s) => s.id === ids[0])?.title || 'song'}.pdf`)
+        onDone(`Exported ${ids.length} song${ids.length > 1 ? 's' : ''} to PDF.`)
+      }
+    } catch (err) {
+      onDone(err instanceof Error ? err.message : 'Export failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={mode === 'json' ? 'Export Songs (JSON)' : 'Export as PDF'} maxWidth="max-w-md">
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search songs..."
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface-dim border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+          />
+        </div>
+
+        <button onClick={toggleAll} className="flex items-center gap-2 text-sm font-semibold text-accent">
+          <span className={`w-4 h-4 rounded flex items-center justify-center border ${allSelected ? 'bg-accent border-accent' : 'border-border'}`}>
+            {allSelected && <Check size={12} className="text-on-accent" />}
+          </span>
+          {allSelected ? 'Deselect all' : 'Select all'}
+        </button>
+
+        <div className="max-h-[45vh] overflow-y-auto space-y-1.5 -mx-1 px-1">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-text-muted text-center py-6">No songs match.</p>
+          ) : (
+            filtered.map((song) => {
+              const on = selected.has(song.id)
+              return (
+                <button
+                  key={song.id}
+                  onClick={() => toggle(song.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl border text-left transition-colors ${on ? 'border-accent bg-accent-surface/10' : 'border-border bg-surface hover:border-accent/40'}`}
+                >
+                  <span className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 ${on ? 'bg-accent border-accent' : 'border-border'}`}>
+                    {on && <Check size={13} className="text-on-accent" />}
+                  </span>
+                  <KeyAvatar songKey={song.songKey} size={32} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-text-primary truncate">{song.title}</p>
+                    <p className="text-xs text-text-secondary">Key of {song.songKey}</p>
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1" disabled={selected.size === 0 || busy} onClick={doExport}>
+            {busy ? 'Exporting…' : `Export (${selected.size})`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

@@ -45,10 +45,23 @@ export function PerformOverlay({ songs, onClose }: { songs: Song[]; onClose: () 
           return (
             <div key={i} className="mb-3">
               {!isSection && hasChords && (
-                <div className="flex flex-wrap gap-2 mb-1">
-                  {line.chords.filter((c) => c).map((c, j) => (
-                    <span key={j} className="text-sm font-bold text-accent">{c}</span>
-                  ))}
+                // Fixed-slot grid mirroring the editor/overview: empty slots
+                // stay as invisible spacers so each chord keeps the x-position
+                // it was placed at. Do NOT filter empties — that collapses the
+                // grid and destroys alignment.
+                <div className="flex flex-wrap gap-px mb-1">
+                  {line.chords.map((c, j) =>
+                    c ? (
+                      <span
+                        key={j}
+                        className="min-w-[24px] h-7 px-1 rounded text-sm font-bold bg-accent-surface/30 text-accent inline-flex items-center justify-center"
+                      >
+                        {c}
+                      </span>
+                    ) : (
+                      <span key={j} className="min-w-[24px] h-7 px-1 text-sm font-bold invisible">+</span>
+                    )
+                  )}
                 </div>
               )}
               {line.lyrics.trim() && (

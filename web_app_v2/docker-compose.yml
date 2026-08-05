@@ -1,19 +1,25 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Context is the repo root so assets/ can be baked into the image.
+      context: ..
+      dockerfile: web_app_v2/Dockerfile
     ports:
       - "8000:8000"
     volumes:
+      # Assets are now baked into the image (see Dockerfile) — no host mount.
       - church-db:/app/backend/data
-      - ../assets:/app/assets:ro
     environment:
       - ASSETS_PATH=/app/assets
+      # Local dev: SQLite via DB_DIR. Set DATABASE_URL to test against Postgres.
       - DB_DIR=/app/backend/data
+      - DATABASE_URL=${DATABASE_URL:-}
       - SECRET_KEY=${SECRET_KEY}
       - APP_PASSWORD_HASH=${APP_PASSWORD_HASH}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      # Local dev over http://localhost → cookie can't be Secure/None.
+      - COOKIE_SAMESITE=lax
+      - COOKIE_SECURE=false
     restart: unless-stopped
     healthcheck:
       # python, not curl — python:3.12-slim ships no curl.

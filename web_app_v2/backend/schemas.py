@@ -41,6 +41,14 @@ class PptCreate(BaseModel):
 class PptData(PptCreate):
     model_config = ConfigDict(from_attributes=True)
 
+class ExportSongsRequest(BaseModel):
+    song_ids: List[str]
+
+class ImportSongsResult(BaseModel):
+    imported: int
+    updated: int
+    skipped: int
+
 class ExportPdfRequest(BaseModel):
     song_ids: List[str]
 

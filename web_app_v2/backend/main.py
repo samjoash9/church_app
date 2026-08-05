@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import os
 import io
+import json
 import uuid
 
 import models, schemas, database, ppt_themes
@@ -57,6 +58,17 @@ def _bold_variant_path(regular_path: str) -> str:
 
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
+# Session-cookie flags. For a split deploy (Vercel frontend + Render API) the
+# cookie must be SameSite=None + Secure so the browser sends it cross-site.
+# For local same-origin dev, set COOKIE_SAMESITE=lax and COOKIE_SECURE=false.
+COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "none").lower()
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
+
+# Public origin of THIS API (Render), used to build absolute /media URLs the
+# separately-hosted frontend (Vercel) can load. Empty in same-origin/local dev
+# → URLs stay relative. e.g. https://church-api.onrender.com
+PUBLIC_MEDIA_BASE = os.environ.get("PUBLIC_MEDIA_BASE", "").rstrip("/")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -89,15 +101,22 @@ def login(response: Response, request: Request, body: schemas.LoginRequest):
         value=token,
         max_age=auth.TOKEN_TTL_SECONDS,
         httponly=True,
-        secure=True,
-        samesite="lax",
+        secure=COOKIE_SECURE,
+        # Cross-origin (frontend on Vercel, API on Render) needs SameSite=None
+        # so the browser sends the session cookie on API calls; None requires
+        # Secure=True. Same-origin/local dev uses "lax".
+        samesite=COOKIE_SAMESITE,
         path="/",
     )
     return {"message": "logged in"}
 
 @app.post("/api/auth/logout")
 def logout(response: Response):
-    response.delete_cookie(auth.COOKIE_NAME, path="/")
+    # Must echo the same SameSite/Secure attributes used when setting it, or
+    # the browser refuses to clear a cross-site cookie.
+    response.delete_cookie(
+        auth.COOKIE_NAME, path="/", samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE
+    )
     return {"message": "logged out"}
 
 @app.get("/api/auth/status")
@@ -156,6 +175,99 @@ def delete_song(song_id: str, db: Session = Depends(database.get_db)):
     db.delete(db_song)
     db.commit()
     return {"message": "deleted"}
+
+@api.post("/api/songs/import", response_model=schemas.ImportSongsResult)
+async def import_songs(
+    file: UploadFile = File(...),
+    db: Session = Depends(database.get_db),
+):
+    """Bulk-import songs from a JSON file exported by the mobile app or web.
+
+    Accepts either a JSON array of song objects or a single song object.
+    Each song is upserted by `id`: existing id → overwrite, new id → insert.
+    Entries missing a non-empty `id` or `title` are skipped (mirrors the
+    mobile importer)."""
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 25 MB)")
+
+    try:
+        data = json.loads(contents.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="File is not valid JSON")
+
+    # Accept a bare object or an array of objects.
+    if isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list):
+        raise HTTPException(status_code=400, detail="Expected a JSON array or object of songs")
+
+    imported = updated = skipped = 0
+    for entry in data:
+        if not isinstance(entry, dict):
+            skipped += 1
+            continue
+        sid = entry.get("id")
+        title = entry.get("title")
+        if not sid or not title:
+            skipped += 1
+            continue
+
+        # Validate shape via the same schema used for create/update.
+        try:
+            song = schemas.SongDataCreate(**entry)
+        except Exception:
+            skipped += 1
+            continue
+
+        lines_data = [line.model_dump() for line in song.lines]
+        existing = db.query(models.Song).filter(models.Song.id == song.id).first()
+        if existing:
+            existing.title = song.title
+            existing.songKey = song.songKey
+            existing.lines = lines_data
+            existing.language = song.language
+            updated += 1
+        else:
+            db.add(models.Song(
+                id=song.id,
+                title=song.title,
+                songKey=song.songKey,
+                lines=lines_data,
+                language=song.language,
+            ))
+            imported += 1
+
+    db.commit()
+    return schemas.ImportSongsResult(imported=imported, updated=updated, skipped=skipped)
+
+@api.post("/api/songs/export")
+def export_songs(req: schemas.ExportSongsRequest, db: Session = Depends(database.get_db)):
+    """Export selected songs as a downloadable JSON array — the same flat
+    `{id,title,songKey,language,lines}` shape the importer reads, so exports
+    round-trip between web and mobile."""
+    songs = []
+    for sid in req.song_ids:
+        s = db.query(models.Song).filter(models.Song.id == sid).first()
+        if s:
+            songs.append({
+                "id": s.id,
+                "title": s.title,
+                "songKey": s.songKey,
+                "language": s.language,
+                "lines": s.lines or [],
+            })
+
+    if not songs:
+        raise HTTPException(status_code=404, detail="No songs found for export")
+
+    payload = json.dumps(songs, indent=2, ensure_ascii=False).encode("utf-8")
+    buf = io.BytesIO(payload)
+    return StreamingResponse(
+        buf,
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="songs_export.json"'},
+    )
 
 # ---------------------------------------------------------------------------
 # Lineup
@@ -447,7 +559,7 @@ def list_ppt_themes():
         {
             "id": t.id,
             "displayName": t.display_name,
-            "preview": f"/media/assets/{t.preview_asset}",
+            "preview": f"{PUBLIC_MEDIA_BASE}/media/assets/{t.preview_asset}",
         }
         for t in ppt_themes.ALL_THEMES
     ]

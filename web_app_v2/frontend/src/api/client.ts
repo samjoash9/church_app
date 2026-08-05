@@ -1,6 +1,10 @@
 import type { Song, LineupItem, Ppt, SoundEntry } from '../types'
 
-const BASE = '/api'
+// In prod the API lives on a different origin (Render), so point at it via
+// VITE_API_BASE (e.g. https://church-api.onrender.com). Unset in local dev →
+// "/api" hits the Vite proxy / same-origin backend.
+const API_ORIGIN = import.meta.env.VITE_API_BASE?.replace(/\/$/, '') ?? ''
+const BASE = `${API_ORIGIN}/api`
 
 export class UnauthorizedError extends Error {}
 
@@ -43,6 +47,25 @@ export const api = {
     create: (song: Song) => req<Song>('/songs', { method: 'POST', body: JSON.stringify(song) }),
     update: (id: string, song: Song) => req<Song>(`/songs/${id}`, { method: 'PUT', body: JSON.stringify(song) }),
     remove: (id: string) => req<void>(`/songs/${id}`, { method: 'DELETE' }),
+    import: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return req<{ imported: number; updated: number; skipped: number }>('/songs/import', { method: 'POST', body: form })
+    },
+    export: async (songIds: string[]): Promise<Blob> => {
+      const res = await fetch(`${BASE}/songs/export`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ song_ids: songIds }),
+      })
+      if (res.status === 401) {
+        unauthorizedHandler?.()
+        throw new UnauthorizedError('Not authenticated')
+      }
+      if (!res.ok) throw new Error('Song export failed')
+      return res.blob()
+    },
   },
   lineup: {
     list: () => req<LineupItem[]>('/lineup'),

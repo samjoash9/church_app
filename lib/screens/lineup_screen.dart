@@ -11,6 +11,9 @@ import '../services/transposer.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/modal_action_button.dart';
+import '../widgets/key_avatar.dart';
+import '../widgets/sheet_handle.dart';
 import 'perform_screen.dart';
 import 'song_overview_screen.dart';
 
@@ -279,17 +282,7 @@ class _LineupScreenState extends State<LineupScreen> {
               child: Column(
                 children: [
                   // Handle bar
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colors.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
+                  SheetHandle(colors: colors),
                   // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -456,23 +449,7 @@ class _LineupScreenState extends State<LineupScreen> {
                               final isChecked = selected.contains(song.id);
                               return ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                leading: Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: colors.accentSurface.withAlpha(51),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    song.songKey,
-                                    style: TextStyle(
-                                      color: colors.accent,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
+                                leading: KeyAvatar(songKey: song.songKey, colors: colors),
                                 title: Text(
                                   song.title,
                                   style: TextStyle(
@@ -789,7 +766,7 @@ class _LineupScreenState extends State<LineupScreen> {
                 const SizedBox(height: 28),
 
                 // ── Overview (lyrics + chords) ──
-                _LineupModalButton(
+                ModalActionButton(
                   icon: Icons.visibility_rounded,
                   label: 'Overview',
                   colors: colors,
@@ -806,7 +783,7 @@ class _LineupScreenState extends State<LineupScreen> {
                 const SizedBox(height: 12),
 
                 // ── Change key ──
-                _LineupModalButton(
+                ModalActionButton(
                   icon: Icons.swap_vert_rounded,
                   label: 'Change Key',
                   colors: colors,
@@ -819,7 +796,7 @@ class _LineupScreenState extends State<LineupScreen> {
                 const SizedBox(height: 12),
 
                 // ── Remove from Line up ──
-                _LineupModalButton(
+                ModalActionButton(
                   icon: Icons.remove_circle_outline_rounded,
                   label: 'Remove from Line up',
                   colors: colors,
@@ -833,7 +810,7 @@ class _LineupScreenState extends State<LineupScreen> {
                 const SizedBox(height: 12),
 
                 // ── Back ──
-                _LineupModalButton(
+                ModalActionButton(
                   icon: Icons.arrow_back_rounded,
                   label: 'Back',
                   colors: colors,
@@ -1069,22 +1046,7 @@ class _LineupScreenState extends State<LineupScreen> {
                         child: ListTile(
                           onTap: () => _showSongActionModal(song),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: colors.accentSurface.withAlpha(51),
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              song.songKey,
-                              style: TextStyle(
-                                color: colors.accent,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                          leading: KeyAvatar(songKey: song.songKey, colors: colors, size: 40),
                           title: Text(
                             song.title,
                             style: TextStyle(
@@ -1112,67 +1074,6 @@ class _LineupScreenState extends State<LineupScreen> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LineupModalButton extends StatelessWidget {
-  const _LineupModalButton({
-    required this.icon,
-    required this.label,
-    required this.colors,
-    required this.isPrimary,
-    required this.onTap,
-    this.isDanger = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final AppColors colors;
-  final bool isPrimary;
-  final bool isDanger;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isPrimary ? colors.accentSurface : colors.surfaceDim;
-    final fg = isDanger
-        ? colors.danger
-        : (isPrimary ? colors.onAccent : colors.textPrimary);
-    final borderColor = isPrimary ? colors.accentSurface : colors.border;
-
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.2),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: fg, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

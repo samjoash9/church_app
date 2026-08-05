@@ -82,9 +82,9 @@ export function SongEditorModal({ open, song, pendingMeta, onClose, onSaved }: P
 
   return (
     <Modal open={open} onClose={onClose} maxWidth="max-w-3xl">
-      <div className="-m-6 flex flex-col h-[80vh]">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-          <div className="flex bg-accent rounded-lg p-1 flex-1 max-w-xs">
+      <div className="-m-6 flex flex-col h-[85vh]">
+        <div className="flex items-center flex-wrap gap-2 px-4 py-3 border-b border-border shrink-0">
+          <div className="flex bg-accent rounded-lg p-1 w-full sm:flex-1 sm:w-auto order-last sm:order-none max-w-full sm:max-w-xs">
             {(['chords', 'lyrics', 'view'] as Mode[]).map((m) => (
               <button
                 key={m}
@@ -260,30 +260,30 @@ function ChordsEditor({
                 // Same slot layout as edit mode: empty slots stay as invisible
                 // spacers so each chord keeps the exact x-position it has when
                 // editing (a chord in slot 6 stays above the same word).
-                <div className="flex flex-wrap gap-px mb-1">
+                <div className="flex flex-wrap gap-0.5 sm:gap-px mb-1">
                   {Array.from({ length: slotCount }).map((_, wordIdx) => {
                     const chord = line.chords[wordIdx] || ''
                     return chord ? (
                       <span
                         key={wordIdx}
-                        className="min-w-[20px] h-6 px-1 rounded text-xs font-bold bg-accent-surface/30 text-accent inline-flex items-center justify-center"
+                        className="min-w-[28px] h-7 sm:min-w-[20px] sm:h-6 px-1 rounded text-xs font-bold bg-accent-surface/30 text-accent inline-flex items-center justify-center"
                       >
                         {chord}
                       </span>
                     ) : (
-                      <span key={wordIdx} className="min-w-[20px] h-6 px-1 text-xs font-bold invisible">+</span>
+                      <span key={wordIdx} className="min-w-[28px] h-7 sm:min-w-[20px] sm:h-6 px-1 text-xs font-bold invisible">+</span>
                     )
                   })}
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-px mb-1">
+                <div className="flex flex-wrap gap-0.5 sm:gap-px mb-1">
                   {Array.from({ length: slotCount }).map((_, wordIdx) => {
                     const chord = line.chords[wordIdx] || ''
                     return (
                       <button
                         key={wordIdx}
                         onClick={() => setPickerFor({ lineIdx, wordIdx })}
-                        className={`min-w-[20px] h-6 px-1 rounded text-xs font-bold ${
+                        className={`min-w-[28px] h-7 sm:min-w-[20px] sm:h-6 px-1 rounded text-xs font-bold ${
                           chord ? 'bg-accent-surface/30 text-accent' : 'bg-accent-surface/10 text-accent/40'
                         }`}
                       >

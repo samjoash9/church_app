@@ -1,0 +1,30 @@
+# Render Blueprint for the church API (backend only).
+# Frontend → Vercel, DB → Supabase. Deploy: Render Dashboard → New → Blueprint,
+# point at this repo. Docker build context is the repo root (rootDir: .).
+#
+# Free plan: 512MB RAM, sleeps after 15min idle (first request cold-starts).
+services:
+  - type: web
+    name: church-api
+    runtime: docker
+    plan: free
+    rootDir: .
+    dockerfilePath: web_app_v2/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      # --- set these in the Render dashboard (mark as secret) ---
+      - key: DATABASE_URL          # Supabase Postgres connection string
+        sync: false
+      - key: SECRET_KEY            # python -c "import secrets; print(secrets.token_hex(32))"
+        sync: false
+      - key: APP_PASSWORD_HASH     # python -c "import hashlib; print(hashlib.sha256(b'pw').hexdigest())"
+        sync: false
+      - key: ALLOWED_ORIGINS       # your Vercel URL, e.g. https://church-app.vercel.app
+        sync: false
+      - key: PUBLIC_MEDIA_BASE     # this service's URL, e.g. https://church-api.onrender.com
+        sync: false
+      # --- split-deploy cookie flags (cross-site) ---
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: COOKIE_SECURE
+        value: "true"

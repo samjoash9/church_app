@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../widgets/modal_action_button.dart';
 import '../models/song.dart';
 import '../services/song_repository.dart';
 import '../services/pdf_export_service.dart';
@@ -84,6 +85,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
   final List<LyricSection> _sections = [
     LyricSection(title: 'Verse', isExpanded: true),
     LyricSection(title: 'Second Verse'),
+    LyricSection(title: 'Third Verse'),
     LyricSection(title: 'Pre-Chorus'),
     LyricSection(title: 'Chorus'),
     LyricSection(title: 'Second Chorus'),
@@ -94,17 +96,44 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
   late String _currentKey;
   late String _songId;
 
+  bool _introEnabled = false;
+  bool _instrumentalEnabled = false;
+  SongLine _introLine = SongLine(lyrics: '');
+  SongLine _instrumentalLine = SongLine(lyrics: '');
+  final SongLine _introHeader = SongLine(lyrics: '[Intro]');
+  final SongLine _instrumentalHeader = SongLine(lyrics: '[Instrumental]');
+
   @override
   void initState() {
     super.initState();
     _currentKey = widget.songKey;
     _songId = widget.songId ?? DateTime.now().millisecondsSinceEpoch.toString();
-    
+
     if (widget.initialLines != null) {
-      _lines = widget.initialLines!.map((l) => SongLine(
+      final rawLines = widget.initialLines!.map((l) => SongLine(
         lyrics: l.lyrics,
         initialChords: l.chords,
       )).toList();
+
+      int cursor = 0;
+      while (cursor < rawLines.length) {
+        final header = rawLines[cursor].lyrics.trim().toLowerCase();
+        if (header == '[intro]') {
+          _introEnabled = true;
+          _introLine.dispose();
+          _introLine = (cursor + 1 < rawLines.length) ? rawLines[cursor + 1] : SongLine(lyrics: '');
+          cursor += 2;
+        } else if (header == '[instrumental]') {
+          _instrumentalEnabled = true;
+          _instrumentalLine.dispose();
+          _instrumentalLine = (cursor + 1 < rawLines.length) ? rawLines[cursor + 1] : SongLine(lyrics: '');
+          cursor += 2;
+        } else {
+          break;
+        }
+      }
+
+      _lines = rawLines.sublist(cursor);
       _syncLinesToSections();
     } else {
       _sections[0].isExpanded = true;
@@ -119,6 +148,10 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
     for (final line in _lines) {
       line.dispose();
     }
+    _introLine.dispose();
+    _instrumentalLine.dispose();
+    _introHeader.dispose();
+    _instrumentalHeader.dispose();
     super.dispose();
   }
 
@@ -221,6 +254,14 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
     _lines = newLines;
   }
 
+  List<SongLine> get _displayLines => [
+        if (_introEnabled) _introHeader,
+        if (_introEnabled) _introLine,
+        if (_instrumentalEnabled) _instrumentalHeader,
+        if (_instrumentalEnabled) _instrumentalLine,
+        ..._lines,
+      ];
+
   void _toggleMode(EditorMode mode) {
     if (_currentMode == mode) return;
 
@@ -242,7 +283,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
     final newChords = _keyChords[newKey];
     if (oldChords == null || newChords == null) return;
 
-    for (final line in _lines) {
+    for (final line in [_introLine, _instrumentalLine, ..._lines]) {
       for (final slot in line.slots) {
         final currentChord = slot.controller.text;
         if (currentChord.isNotEmpty) {
@@ -259,14 +300,24 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
     if (_currentMode == EditorMode.lyrics) {
       _syncTextToLines();
     }
+    final lines = <SongLineData>[];
+    if (_introEnabled) {
+      lines.add(SongLineData(lyrics: '[Intro]', chords: []));
+      lines.add(SongLineData(lyrics: '', chords: _introLine.chordValues));
+    }
+    if (_instrumentalEnabled) {
+      lines.add(SongLineData(lyrics: '[Instrumental]', chords: []));
+      lines.add(SongLineData(lyrics: '', chords: _instrumentalLine.chordValues));
+    }
+    lines.addAll(_lines.map((line) => SongLineData(
+      lyrics: line.lyrics,
+      chords: line.chordValues,
+    )));
     return SongData(
       id: _songId,
       title: widget.title,
       songKey: _currentKey,
-      lines: _lines.map((line) => SongLineData(
-        lyrics: line.lyrics,
-        chords: line.chordValues,
-      )).toList(),
+      lines: lines,
       language: widget.language,
     );
   }
@@ -339,7 +390,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
                 const SizedBox(height: 28),
 
                 // ── Save button ──
-                _ModalActionButton(
+                ModalActionButton(
                   icon: Icons.save_rounded,
                   label: 'Save',
                   colors: colors,
@@ -352,7 +403,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
                 const SizedBox(height: 12),
 
                 // ── Export as PDF ──
-                _ModalActionButton(
+                ModalActionButton(
                   icon: Icons.picture_as_pdf_rounded,
                   label: 'Export as PDF',
                   colors: colors,
@@ -365,7 +416,7 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
                 const SizedBox(height: 12),
 
                 // ── Back ──
-                _ModalActionButton(
+                ModalActionButton(
                   icon: Icons.arrow_back_rounded,
                   label: 'Back',
                   colors: colors,
@@ -382,6 +433,44 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
 
   void _exit() {
     Navigator.of(context).pop();
+  }
+
+  Widget _buildIncludeToggle({
+    required String title,
+    required bool value,
+    required AppColors colors,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: value ? colors.accentSurface : colors.surfaceDim,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: value ? colors.onAccent : colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              activeColor: colors.onAccent,
+              checkColor: colors.accent,
+              side: BorderSide(color: value ? colors.onAccent : colors.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSectionToggle(LyricSection section, AppColors colors) {
@@ -679,22 +768,36 @@ class _SongEditorScreenState extends State<SongEditorScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: _currentMode == EditorMode.lyrics
-                    ? ListView.builder(
-                        itemCount: _sections.length,
-                        itemBuilder: (context, index) {
-                          final section = _sections[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: _buildSectionToggle(section, colors),
-                          );
-                        },
+                    ? ListView(
+                        children: [
+                          _buildIncludeToggle(
+                            title: 'Intro',
+                            value: _introEnabled,
+                            colors: colors,
+                            onChanged: (v) => setState(() => _introEnabled = v),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildIncludeToggle(
+                            title: 'Instrumental',
+                            value: _instrumentalEnabled,
+                            colors: colors,
+                            onChanged: (v) => setState(() => _instrumentalEnabled = v),
+                          ),
+                          const SizedBox(height: 12),
+                          for (final section in _sections)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: _buildSectionToggle(section, colors),
+                            ),
+                        ],
                       )
                     : ListView.builder(
-                        itemCount: _lines.length,
+                        itemCount: _displayLines.length,
                         itemBuilder: (context, index) {
-                          final line = _lines[index];
+                          final line = _displayLines[index];
+                          final isChordOnlyRow = identical(line, _introLine) || identical(line, _instrumentalLine);
 
-                          if (line.lyrics.trim().isEmpty && line.chordValues.every((c) => c.isEmpty)) {
+                          if (!isChordOnlyRow && line.lyrics.trim().isEmpty && line.chordValues.every((c) => c.isEmpty)) {
                             return const SizedBox(height: 16);
                           }
 
@@ -877,63 +980,6 @@ class ChordSlotWidget extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _ModalActionButton extends StatelessWidget {
-  const _ModalActionButton({
-    required this.icon,
-    required this.label,
-    required this.colors,
-    required this.isPrimary,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final AppColors colors;
-  final bool isPrimary;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isPrimary ? colors.accentSurface : colors.surfaceDim;
-    final fg = isPrimary ? colors.onAccent : colors.textPrimary;
-    final borderColor = isPrimary ? colors.accentSurface : colors.border;
-
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.2),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: fg, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

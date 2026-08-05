@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  DndContext, PointerSensor, TouchSensor, KeyboardSensor,
+  closestCenter, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   Plus, GripVertical, ChevronRight, Play, FileDown,
   Presentation, Trash2, Eye, ArrowUpDown, ArrowLeft,
 } from 'lucide-react'
@@ -21,8 +30,15 @@ export function LineupPage() {
   const [clearOpen, setClearOpen] = useState(false)
   const [pptPickerOpen, setPptPickerOpen] = useState(false)
   const [performing, setPerforming] = useState(false)
-  const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [actionItem, setActionItem] = useState<{ item: LineupItem; song: Song } | null>(null)
+
+  // distance/delay constraints so a tap still opens the action modal — only a
+  // deliberate drag reorders. TouchSensor uses a long-press to start on mobile.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   const refresh = () => {
     api.lineup.list().then(setLineup).catch(() => {})
@@ -40,10 +56,16 @@ export function LineupPage() {
     [lineup, songs]
   )
 
-  async function handleReorder(from: number, to: number) {
-    const ids = lineupSongs.map((x) => x.item.song_id)
-    const [moved] = ids.splice(from, 1)
-    ids.splice(to, 0, moved)
+  async function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = lineupSongs.findIndex((x) => x.item.id === active.id)
+    const to = lineupSongs.findIndex((x) => x.item.id === over.id)
+    if (from < 0 || to < 0) return
+    const ids = arrayMove(lineupSongs.map((x) => x.item.song_id), from, to)
+    // optimistic: reflect new order immediately, then persist
+    const reordered = arrayMove(lineup.slice().sort((a, b) => a.order_index - b.order_index), from, to)
+    setLineup(reordered.map((it, i) => ({ ...it, order_index: i })))
     await api.lineup.reorder(ids)
     refresh()
   }
@@ -65,7 +87,9 @@ export function LineupPage() {
         action={
           lineupSongs.length > 0 ? (
             <div className="flex items-center gap-2">
-              <Button variant="primary" icon={<Play size={16} />} onClick={() => setPerforming(true)}>Perform</Button>
+              <Button variant="primary" icon={<Play size={16} />} onClick={() => setPerforming(true)}>
+                <span className="hidden sm:inline">Perform</span>
+              </Button>
               <Button variant="secondary" icon={<FileDown size={16} />} onClick={exportPdf}>
                 <span className="hidden lg:inline">Export </span>PDF
               </Button>
@@ -74,10 +98,10 @@ export function LineupPage() {
               </Button>
               <button
                 onClick={() => setClearOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-danger border border-danger/30 bg-danger/10 hover:bg-danger/20 transition-colors"
+                className="inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2.5 text-sm font-semibold text-danger border border-danger/30 bg-danger/10 hover:bg-danger/20 transition-colors"
               >
                 <Trash2 size={16} />
-                Clear
+                <span className="hidden sm:inline">Clear</span>
               </button>
             </div>
           ) : undefined
@@ -92,27 +116,20 @@ export function LineupPage() {
             <p className="text-text-muted">Tap + to add songs to your lineup.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {lineupSongs.map(({ item, song }, idx) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={() => setDragIdx(idx)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => { if (dragIdx !== null && dragIdx !== idx) handleReorder(dragIdx, idx); setDragIdx(null) }}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface border border-border hover:border-accent/40 transition-colors"
-              >
-                <button
-                  onClick={() => setActionItem({ item, song })}
-                  className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
-                >
-                  <KeyAvatar songKey={song.songKey} size={40} />
-                  <span className="flex-1 font-bold text-text-primary truncate">{song.title}</span>
-                </button>
-                <GripVertical className="text-text-muted cursor-grab shrink-0" size={20} />
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={lineupSongs.map((x) => x.item.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {lineupSongs.map(({ item, song }) => (
+                  <SortableRow
+                    key={item.id}
+                    id={item.id}
+                    song={song}
+                    onOpen={() => setActionItem({ item, song })}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
@@ -157,6 +174,40 @@ export function LineupPage() {
       />
 
       {performing && <PerformOverlay songs={lineupSongs.map((x) => x.song)} onClose={() => setPerforming(false)} />}
+    </div>
+  )
+}
+
+function SortableRow({ id, song, onOpen }: { id: number; song: Song; onOpen: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-surface border transition-colors ${
+        isDragging ? 'border-accent shadow-glow' : 'border-border hover:border-accent/40'
+      }`}
+    >
+      <button
+        onClick={onOpen}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
+      >
+        <KeyAvatar songKey={song.songKey} size={40} />
+        <span className="flex-1 font-bold text-text-primary truncate">{song.title}</span>
+      </button>
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        className="p-1 -m-1 text-text-muted touch-none cursor-grab active:cursor-grabbing shrink-0"
+      >
+        <GripVertical size={20} />
+      </button>
     </div>
   )
 }
